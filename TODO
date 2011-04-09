@@ -1,0 +1,6 @@
+ - Periodic NOOP sending
+ - More compatible LIST parsing?
+ - TLS/SSL connections
+ - REST
+ - Active (non-passive) data connections
+ - Implement newer non-RFC959 commands (especially RFC3659)
