@@ -111,7 +111,7 @@ Events
 Methods
 -------
 
-**If a particular method results in an FTP-specific error, the error object supplied to the callback will contain 'code' and 'text' properties that contain the relevant FTP response code and the associated error text respectively.**
+**If a particular action results in an FTP-specific error, the error object supplied to the callback or 'error' event will contain 'code' and 'text' properties that contain the relevant FTP response code and the associated error text respectively.**
 
 * **(constructor)**([Object:config]) - Creates and returns a new instance of the FTP module using the specified configuration object. Valid properties of the passed in object are:
     * **String:host** - The hostname or IP address of the FTP server. **Default:** "127.0.0.1"
