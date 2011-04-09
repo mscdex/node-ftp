@@ -59,6 +59,7 @@ Examples
             });
           });
         });
+        conn.connect();
 
 * Download remote file 'foo.txt' and save it to the local file system:
 
