@@ -1,4 +1,4 @@
-{ "name": "imap",
+{ "name": "ftp",
   "version": "0.1.0",
   "author": "Brian White <mscdex@mscdex.net>",
   "description": "An FTP client module for node.js",
