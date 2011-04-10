@@ -94,8 +94,8 @@ Examples
 API
 ===
 
-Events
-------
+_Events_
+--------
 
 * **connect**() - Fires when a connection to the server has been successfully established.
 
@@ -108,10 +108,16 @@ Events
 * **error**(Error:err) - Fires when an exception/error occurs (similar to net.Socket's error event). The given Error object represents the error raised.
 
 
-Methods
--------
+_Methods_
+---------
 
-**If a particular action results in an FTP-specific error, the error object supplied to the callback or 'error' event will contain 'code' and 'text' properties that contain the relevant FTP response code and the associated error text respectively.**
+**\* Note 1: If a particular action results in an FTP-specific error, the error object supplied to the callback or 'error' event will contain 'code' and 'text' properties that contain the relevant FTP response code and the associated error text respectively.**
+
+**\* Note 2: Methods that return a Boolean success value will immediately return false if the action couldn't be carried out for reasons including: no server connection or the relevant command is not available on that particular server.**
+
+### Standard
+
+These are actions defined by the "original" FTP RFC (959) and are generally supported by all FTP servers.
 
 * **(constructor)**([Object:config]) - Creates and returns a new instance of the FTP module using the specified configuration object. Valid properties of the passed in object are:
     * **String:host** - The hostname or IP address of the FTP server. **Default:** "127.0.0.1"
@@ -125,7 +131,7 @@ Methods
 
 * **auth**([String:username], [String:password], Function:callback) - _Boolean:success_ - Authenticates with the server (leave out username and password to log in as anonymous). The callback has these parameters: the error (undefined if none).
 
-* **list**(Function:callback) - _Boolean:success_ - Retrieves the directory listing of the current working directory. The callback has these parameters: the error (undefined if none) and an EventEmitter. The EventEmitter emits the following events:
+* **list**([String:path], Function:callback) - _Boolean:success_ - Retrieves the directory listing of the specified path. If path is not supplied, the current working directory is used. The callback has these parameters: the error (undefined if none) and an EventEmitter. The EventEmitter emits the following events:
 
     * **entry**(Object:entryInfo) - Fires for each file or subdirectory. entryInfo contains the following possible properties:
         * **String:name** - The name of the entry.
@@ -175,3 +181,22 @@ Methods
 * **system**(Function:callback) - _Boolean:success_ - Retrieves information about the server's operating system. The callback has these parameters: the error (undefined if none) and a string containing the text returned by the server.
 
 * **status**(Function:callback) - _Boolean:success_ - Retrieves human-readable information about the server's status. The callback has these parameters: the error (undefined if none) and a string containing the text returned by the server.
+
+
+### Extended
+
+These are actions defined by later RFCs that may not be supported by all FTP servers.
+
+* **size**(String:filename, Function:callback) - _Boolean:success_ - Retrieves the size of the specified file. The callback has these parameters: the error (undefined if none) and a string containing the size of the file in bytes.
+
+* **lastMod**(String:filename, Function:callback) - _Boolean:success_ - Retrieves the date and time the specified file was last modified. The callback has these parameters: the error (undefined if none) and an object with the following properties:
+
+    * **Integer:entry**(Object:entryInfo) - Fires for each file or subdirectory. entryInfo contains the following possible properties:
+    * **Integer:month** - (1 through 12)
+    * **Integer:date** - (1 through 31)
+    * **Integer:year** - (4-digit)
+    * **Integer:hour** - (0 through 23)
+    * **Integer:minute** - (0 through 59)
+    * **Float:second** - (0 through 60 -- with 60 being used only at a leap second)
+
+* **restart**(String/Integer:byteOffset, Function:callback) - _Boolean:success_ - Sets the file byte offset for the next file transfer action (get/put/append). The callback has these parameters: the error (undefined if none).

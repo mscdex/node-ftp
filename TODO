@@ -1,6 +1,5 @@
  - Periodic NOOP sending
  - More compatible LIST parsing?
- - TLS/SSL connections
- - REST
+ - Add support for some SITE commands such as CHMOD, CHGRP, and QUOTA
+ - Try server IP if server gives a LAN IP when attempting passive data connection
  - Active (non-passive) data connections
- - Implement newer non-RFC959 commands (especially RFC3659)

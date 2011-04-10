@@ -2,8 +2,10 @@ var util = require('util'),
     net = require('net'),
     EventEmitter = require('events').EventEmitter,
     XRegExp = require('./xregexp'),
-    reListUnix = XRegExp('^(?<type>[\\-ld])(?<permission>([\\-r][\\-w][\\-xs]){3})\\s+(?<inodes>\\d+)\\s+(?<owner>\\w+)\\s+(?<group>\\w+)\\s+(?<size>\\d+)\\s+(?<timestamp>((?<month1>\\w{3})\\s+(?<date1>\\d{1,2})\\s+(?<hour>\\d{1,2}):(?<minute>\\d{2}))|((?<month2>\\w{3})\\s+(?<date2>\\d{1,2})\\s+(?<year>\\d{4})))\\s+(?<name>.+)$'),
-    reListMSDOS = XRegExp('^(?<month>\\d{2})(?:\\-|\\/)(?<date>\\d{2})(?:\\-|\\/)(?<year>\\d{2,4})\\s+(?<hour>\\d{2}):(?<minute>\\d{2})\\s{0,1}(?<ampm>[AaMmPp]{1,2})\\s+(?:(?<size>\\d+)|(?<isdir>\\<DIR\\>))\\s+(?<name>.+)$'),
+    reXListUnix = XRegExp.cache('^(?<type>[\\-ld])(?<permission>([\\-r][\\-w][\\-xs]){3})\\s+(?<inodes>\\d+)\\s+(?<owner>\\w+)\\s+(?<group>\\w+)\\s+(?<size>\\d+)\\s+(?<timestamp>((?<month1>\\w{3})\\s+(?<date1>\\d{1,2})\\s+(?<hour>\\d{1,2}):(?<minute>\\d{2}))|((?<month2>\\w{3})\\s+(?<date2>\\d{1,2})\\s+(?<year>\\d{4})))\\s+(?<name>.+)$'),
+    reXListMSDOS = XRegExp.cache('^(?<month>\\d{2})(?:\\-|\\/)(?<date>\\d{2})(?:\\-|\\/)(?<year>\\d{2,4})\\s+(?<hour>\\d{2}):(?<minute>\\d{2})\\s{0,1}(?<ampm>[AaMmPp]{1,2})\\s+(?:(?<size>\\d+)|(?<isdir>\\<DIR\\>))\\s+(?<name>.+)$'),
+    reXTimeval = XRegExp.cache('^(?<year>\\d{4})(?<month>\\d{2})(?<date>\\d{2})(?<hour>\\d{2})(?<minute>\\d{2})(?<second>\\d+)$'),
+    reKV = /(.+?)=(.+?);/,
     debug = false;
 
 var FTP = module.exports = function(options) {
@@ -12,6 +14,7 @@ var FTP = module.exports = function(options) {
   this._state = undefined;
   this._pasvPort = undefined;
   this._pasvIP = undefined;
+  this._feat = undefined;
   this._queue = [];
   this.options = {
     host: 'localhost',
@@ -33,8 +36,12 @@ FTP.prototype.connect = function(port, host) {
   this.options.port = port = port || this.options.port;
   this.options.host = host = host || this.options.host;
 
+  this._feat = new Object();
+
   if (socket)
     socket.end();
+  if (this._dataSock)
+    this._dataSock.end();
 
   var connTimeout = setTimeout(function() {
     self._socket.destroy();
@@ -86,7 +93,23 @@ FTP.prototype.connect = function(port, host) {
         if (!self._state) {
           if (code === 220) {
             self._state = 'connected';
-            self.emit('connect');
+            self.send('FEAT', function(e, text) {
+              if (!e && /\r\n|\n/.test(text)) {
+                var feats = text.split(/\r\n|\n/);
+                feats.shift(); // "Features:"
+                feats.pop(); // "End"
+                for (var i=0,sp,len=feats.length; i<len; ++i) {
+                  feats[i] = feats[i].trim();
+                  if ((sp = feats[i].indexOf(' ')) > -1)
+                    self._feat[feats[i].substring(0, sp).toUpperCase()] = feats[i].substring(sp+1);
+                  else
+                    self._feat[feats[i].toUpperCase()] = true;
+                }
+                if (debug)
+                  debug('Features: ' + util.inspect(self._feat));
+              }
+              self.emit('connect');
+            });
           } else
             self.emit('error', new Error('Did not receive service ready response'));
           return;
@@ -105,7 +128,7 @@ FTP.prototype.connect = function(port, host) {
             self._callCb(makeError(code, text));
         } else if (group === 1) {
           // informational group
-          if (code === 211 || code === 215)
+          if (code >= 211 && code <= 215)
             self._callCb(text);
           else
             self._callCb(makeError(code, text));
@@ -122,7 +145,7 @@ FTP.prototype.connect = function(port, host) {
             self._pasvIP = parsed[1] + '.' + parsed[2] + '.' + parsed[3] + '.'
                           + parsed[4];
             self._pasvPort = (parseInt(parsed[5]) * 256) + parseInt(parsed[6]);
-            self._connectPasv();
+            self._pasvConnect();
             return;
           } else
             self._callCb(makeError(code, text));
@@ -134,7 +157,9 @@ FTP.prototype.connect = function(port, host) {
             self._callCb(makeError(code, text));
         } else if (group === 5) { // group 4 is unused
           // server file system state
-          if (code === 250 || code === 350)
+          if (code === 250 && self._queue[0][0] === 'MLST')
+            self._callCb(text);
+          else if (code === 250 || code === 350)
             self._callCb();
           else if (code === 257) {
             var path = text.match(/(?:^|\s)\"(.*)\"(?:$|\s)/);
@@ -152,6 +177,18 @@ FTP.prototype.connect = function(port, host) {
     }
   });
 };
+
+FTP.prototype.end = function() {
+  if (this._socket)
+    this._socket.end();
+  if (this._dataSock)
+    this._dataSock.end();
+
+  this._socket = undefined;
+  this._dataSock = undefined;
+};
+
+/* Standard features */
 
 FTP.prototype.auth = function(user, password, callback) {
   if (this._state !== 'connected')
@@ -302,57 +339,121 @@ FTP.prototype.status = function(cb) {
   return this.send('STAT', cb);
 };
 
-FTP.prototype.list = function(cb) {
+FTP.prototype.list = function(path, cb) {
   if (this._state !== 'authorized')
     return false;
 
-  var self = this;
-  return this.send('PASV', function(e, stream) {
+  if (typeof path === 'function') {
+    cb = path;
+    path = undefined;
+  }
+
+  var self = this, emitter = new EventEmitter(), parms;
+  /*if (parms = this._feat['MLST']) {
+    var type = undefined,
+        cbTemp = function(e, text) {
+          if (e) {
+            if (!type && e.code === 550) { // path was a file not a dir.
+              type = 'file';
+              if (!self.send('MLST', path, cbTemp))
+                return cb(new Error('Connection severed'));
+              return;
+            } else if (!type && e.code === 425) {
+              type = 'pasv';
+              if (!self._pasvGetLines(emitter, 'MLSD', cbTemp))
+                return cb(new Error('Connection severed'));
+              return;
+            }
+            if (type === 'dir')
+              return emitter.emit('error', e);
+            else
+              return cb(e);
+          }
+          if (type === 'file') {
+            cb(undefined, emitter);
+            var lines = text.split(/\r\n|\n/), result;
+            lines.shift();
+            lines.pop();
+            lines.pop();
+            result = parseMList(lines[0]);
+            emitter.emit((typeof result === 'string' ? 'raw' : 'entry'), result);
+            emitter.emit('end');
+            emitter.emit('success');
+          } else if (type === 'pasv') {
+            type = 'dir';
+            if (path)
+              r = self.send('MLSD', path, cbTemp);
+            else
+              r = self.send('MLSD', cbTemp);
+            if (r)
+              cb(undefined, emitter);
+            else
+              cb(new Error('Connection severed'));
+          } else if (type === 'dir')
+            emitter.emit('success');
+        };
+    if (path)
+      return this.send('MLSD', path, cbTemp);
+    else
+      return this.send('MLSD', cbTemp);
+  } else {*/
+    // Otherwise use the standard way of fetching a listing
+    this._pasvGetLines(emitter, 'LIST', function(e) {
+      if (e)
+        return cb(e);
+      var cbTemp = function(e) {
+            if (e)
+              return emitter.emit('error', e);
+            emitter.emit('success');
+          }, r;
+      if (path)
+        r = self.send('LIST', path, cbTemp);
+      else
+        r = self.send('LIST', cbTemp);
+      if (r)
+        cb(undefined, emitter);
+      else
+        cb(new Error('Connection severed'));
+    });
+  //}
+};
+
+/* Extended features */
+
+FTP.prototype.size = function(path, cb) {
+  if (this._state !== 'authorized' || !this._feat['SIZE'])
+    return false;
+  return this.send('SIZE', path, cb);
+};
+
+FTP.prototype.lastMod = function(path, cb) {
+  if (this._state !== 'authorized' || !this._feat['MDTM'])
+    return false;
+  return this.send('MDTM', path, function(e, text) {
     if (e)
       return cb(e);
-    var curData = '', lines, emitter = new EventEmitter();
-    stream.setEncoding('utf8');
-    stream.on('data', function(data) {
-      curData += data;
-      if (/\r\n|\n/.test(curData)) {
-        if (curData[curData.length-1] === '\n') {
-          lines = curData.split(/\r\n|\n/);
-          curData = '';
-        } else {
-          var pos = curData.lastIndexOf('\r\n');
-          if (pos === -1)
-            pos = curData.lastIndexOf('\n');
-          lines = curData.substring(0, pos).split(/\r\n|\n/);
-          curData = curData.substring(pos+1);
-        }
-        for (var i=0,result,len=lines.length; i<len; ++i) {
-          if (lines[i].length) {
-            if (debug)
-              debug('(PASV) Got LIST line: ' + lines[i]);
-            result = parseList(lines[i]);
-            emitter.emit((typeof result === 'string' ? 'raw' : 'entry'), result);
-          }
-        }
-      }
-    });
-    stream.on('end', function() {
-      emitter.emit('end');
-    });
-    stream.on('error', function(e) {
-      emitter.emit('error', e);
-    });
-
-    var r = self.send('LIST', function(e) {
-              if (e)
-                return emitter.emit('error', e);
-              emitter.emit('success');
-            });
-    if (r)
-      cb(undefined, emitter);
-    else
-      cb(new Error('Connection severed'));
+    var val = reXTimeval.exec(text), ret;
+    if (!val)
+      return cb(new Error('Invalid date/time format from server'));
+    ret = new Object();
+    ret.year = parseInt(val.year, 10);
+    ret.month = parseInt(val.month, 10);
+    ret.date = parseInt(val.date, 10);
+    ret.hour = parseInt(val.hour, 10);
+    ret.minute = parseInt(val.minute, 10);
+    ret.second = parseFloat(val.second, 10);
+    cb(undefined, ret);
   });
 };
+
+FTP.prototype.restart = function(offset, cb) {
+  if (this._state !== 'authorized' || !this._feat['REST']
+      || !(/STREAM/i.test(this._feat['REST'])))
+    return false;
+  return this.send('REST', offset, cb);
+};
+
+/* Internal helper methods */
 
 FTP.prototype.send = function(cmd, params, cb) {
   if (!this._socket || !this._socket.writable)
@@ -380,17 +481,39 @@ FTP.prototype.send = function(cmd, params, cb) {
   return true;
 };
 
-FTP.prototype.end = function() {
-  if (this._socket)
-    this._socket.end();
-  if (this._dataSock)
-    this._dataSock.end();
-
-  this._socket = undefined;
-  this._dataSock = undefined;
+FTP.prototype._pasvGetLines = function(emitter, type, cb) {
+  return this.send('PASV', function(e, stream) {
+    if (e)
+      return cb(e);
+    var curData = '', lines;
+    stream.setEncoding('utf8');
+    stream.on('data', function(data) {
+      curData += data;
+      if (/\r\n|\n/.test(curData)) {
+        if (curData[curData.length-1] === '\n') {
+          lines = curData.split(/\r\n|\n/);
+          curData = '';
+        } else {
+          var pos = curData.lastIndexOf('\r\n');
+          if (pos === -1)
+            pos = curData.lastIndexOf('\n');
+          lines = curData.substring(0, pos).split(/\r\n|\n/);
+          curData = curData.substring(pos+1);
+        }
+        processDirLines(lines, emitter, type);
+      }
+    });
+    stream.on('end', function() {
+      emitter.emit('end');
+    });
+    stream.on('error', function(e) {
+      emitter.emit('error', e);
+    });
+    cb();
+  });
 };
 
-FTP.prototype._connectPasv = function() {
+FTP.prototype._pasvConnect = function() {
   if (!this._pasvPort)
     return false;
 
@@ -457,6 +580,20 @@ FTP.prototype._callCb = function(result) {
 /******************************************************************************/
 /***************************** Utility functions ******************************/
 /******************************************************************************/
+function processDirLines(lines, emitter, type) {
+  for (var i=0,result,len=lines.length; i<len; ++i) {
+    if (lines[i].length) {
+      if (debug)
+        debug('(PASV) Got ' + type + ' line: ' + lines[i]);
+      if (type === 'LIST')
+        result = parseList(lines[i]);
+      else if (type === 'MLSD')
+        result = parseMList(lines[i], numFields);
+      emitter.emit((typeof result === 'string' ? 'raw' : 'entry'), result);
+    }
+  }
+}
+
 function parseResponses(lines) {
   var resps = new Array(),
       multiline = '';
@@ -479,6 +616,26 @@ function parseResponses(lines) {
   return resps;
 }
 
+function parseMList(line) {
+  var ret, result = line.trim().split(reKV);
+  if (result && result.length > 0) {
+    ret = new Object();
+    if (result.length === 1)
+      ret.name = result[0].trim();
+    else {
+      var i = 1;
+      for (var k,v,len=result.length; i<len; i+=3) {
+        k = result[i];
+        v = result[i+1];
+        ret[k] = v;
+      }
+      ret.name = result[result.length-1].trim();
+    }
+  } else
+    ret = line;
+  return ret;
+}
+
 function parseList(line) {
   var ret, info, thisYear = (new Date()).getFullYear(),
       months = {
@@ -496,7 +653,7 @@ function parseList(line) {
         dec: 12
       };
 
-  if (ret = reListUnix.exec(line)) {
+  if (ret = reXListUnix.exec(line)) {
     info = new Object();
     info.type = ret.type;
     info.rights = new Object();
@@ -526,7 +683,7 @@ function parseList(line) {
     } else
       info.name = ret.name;
     ret = info;
-  } else if (ret = reListMSDOS.exec(line)) {
+  } else if (ret = reXListMSDOS.exec(line)) {
     info = new Object();
     info.type = (ret.isdir ? 'd' : '-');
     info.size = (ret.isdir ? '0' : ret.size);
