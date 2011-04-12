@@ -598,20 +598,24 @@ function parseResponses(lines) {
   var resps = new Array(),
       multiline = '';
   for (var i=0,match,len=lines.length; i<len; ++i) {
-    if (match = lines[i].match(/^(\d{3})(?:$|(\s|\-)(.+))/)) {
+    if (match = lines[i].match(/^(\d{3})(?:$|(\s|-)(.*))/)) {
       if (match[2] === '-') {
-        if (match[3])
+        if (match[3]) {
           multiline += match[3] + '\n';
+        }
         continue;
-      } else
+      } else {
         match[3] = (match[3] ? multiline + match[3] : multiline);
-      if (match[3].length)
+      }
+      if (match[3].length) {
         resps.push([parseInt(match[1]), match[3]]);
-      else
+      } else {
         resps.push([parseInt(match[1])]);
+      }
       multiline = '';
-    } else
+    } else {
       multiline += lines[i] + '\n';
+    }
   }
   return resps;
 }
