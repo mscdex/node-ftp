@@ -598,7 +598,7 @@ function parseResponses(lines) {
   var resps = new Array(),
       multiline = '';
   for (var i=0,match,len=lines.length; i<len; ++i) {
-    if (match = lines[i].match(/^(\d{3})(?:$|(\s|\-)(.+))/)) {
+    if (match = lines[i].match(/^(\d{3})(?:$|(\s|-)(.*))/)) {
       if (match[2] === '-') {
         if (match[3])
           multiline += match[3] + '\n';
