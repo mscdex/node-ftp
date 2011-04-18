@@ -123,7 +123,7 @@ These are actions defined by the "original" FTP RFC (959) and are generally supp
     * **String:host** - The hostname or IP address of the FTP server. **Default:** "127.0.0.1"
     * **Integer:port** - The port of the FTP server. **Default:** 21
     * **Function:debug** - Accepts a string and gets called for debug messages **Default:** (no debug output)
-    * **Integer:connTimeout** - The number of milliseconds to wait for a connection to be established. **Default:** 60000
+    * **Integer:connTimeout** - The number of milliseconds to wait for a connection to be established. **Default:** 15000
 
 * **connect**([Number:port],[String:host]) - _(void)_ - Attempts to connect to the FTP server. If the port and host are specified here, they override and overwrite those set in the constructor.
 

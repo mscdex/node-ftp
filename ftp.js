@@ -20,7 +20,7 @@ var FTP = module.exports = function(options) {
     host: 'localhost',
     port: 21,
     /*secure: false,*/
-    connTimeout: 60000, // in ms
+    connTimeout: 15000, // in ms
     debug: false/*,
     active: false*/ // if numerical, is the port number, otherwise should be false
                   // to indicate use of passive mode
@@ -598,7 +598,7 @@ function parseResponses(lines) {
   var resps = new Array(),
       multiline = '';
   for (var i=0,match,len=lines.length; i<len; ++i) {
-    if (match = lines[i].match(/^(\d{3})(?:$|(\s|-)(.*))/)) {
+    if (match = lines[i].match(/^(\d{3})(?:$|(\s|\-)(.+))/)) {
       if (match[2] === '-') {
         if (match[3])
           multiline += match[3] + '\n';
