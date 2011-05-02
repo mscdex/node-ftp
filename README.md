@@ -191,12 +191,12 @@ These are actions defined by later RFCs that may not be supported by all FTP ser
 
 * **lastMod**(String:filename, Function:callback) - _Boolean:success_ - Retrieves the date and time the specified file was last modified. The callback has these parameters: the error (undefined if none) and an object with the following properties:
 
-    * **Integer:entry**(Object:entryInfo) - Fires for each file or subdirectory. entryInfo contains the following possible properties:
-    * **Integer:month** - (1 through 12)
-    * **Integer:date** - (1 through 31)
-    * **Integer:year** - (4-digit)
-    * **Integer:hour** - (0 through 23)
-    * **Integer:minute** - (0 through 59)
-    * **Float:second** - (0 through 60 -- with 60 being used only at a leap second)
+    * **Object:modTime**
+        * **Integer:month** - (1 through 12)
+        * **Integer:date** - (1 through 31)
+        * **Integer:year** - (4-digit)
+        * **Integer:hour** - (0 through 23)
+        * **Integer:minute** - (0 through 59)
+        * **Float:second** - (0 through 60 -- with 60 being used only at a leap second)
 
 * **restart**(String/Integer:byteOffset, Function:callback) - _Boolean:success_ - Sets the file byte offset for the next file transfer action (get/put/append). The callback has these parameters: the error (undefined if none).
