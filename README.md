@@ -189,7 +189,7 @@ These are actions defined by later RFCs that may not be supported by all FTP ser
 
 * **size**(String:filename, Function:callback) - _Boolean:success_ - Retrieves the size of the specified file. The callback has these parameters: the error (undefined if none) and a string containing the size of the file in bytes.
 
-* **lastMod**(String:filename, Function:callback) - _Boolean:success_ - Retrieves the date and time the specified file was last modified. The callback has these parameters: the error (undefined if none) and an object with the following properties:
+* **lastMod**(String:filename, Function:callback) - _Boolean:success_ - Retrieves the date and time the specified file was last modified. The callback has these parameters: the error (undefined if none) and an object:
 
     * **Object:modTime**
         * **Integer:month** - (1 through 12)
