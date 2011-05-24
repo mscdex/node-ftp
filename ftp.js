@@ -257,11 +257,76 @@ FTP.prototype.get = function(path, cb) {
   });
 };
 
+FTP.prototype.putStream = function(destpath, cb) {
+  if (this._state !== 'authorized')
+    return false;
+
+  instream.pause();
+
+  var self = this;
+  return this.send('PASV', function(e, outstream) {
+    if (e)
+      return cb(null, e);
+
+    var r = self.send('STOR', destpath, function(a) { cb(null, a) });
+    if (r) {
+        cb(outstream);
+      }
+    } else
+      cb(null, new Error('Connection severed'));
+  });
+}
+
 FTP.prototype.put = function(instream, destpath, cb) {
   if (this._state !== 'authorized' || !instream.readable)
     return false;
 
   instream.pause();
+
+  var self = this;
+  return this.send('PASV', function(e, outstream) {
+    if (e)
+      return cb(e);
+
+    var r = self.send('STOR', destpath, cb);
+    if (r)
+      instream.pipe(outstream);
+    else
+      cb(new Error('Connection severed'));
+  });
+};
+
+FTP.prototype.append = function(instream, destpath, cb) {
+  if (this._state !== 'authorized' || !instream.readable)
+    return false;
+
+  instream.pause();
+
+  var self = this;
+  return this.send('PASV', function(e, outstream) {
+    if (e)
+      return cb(e);
+
+    var r = self.send('APPE', destpath, cb);
+    if (r)
+      instream.pipe(outstream);
+    else
+      cb(new Error('Connection severed'));
+  });
+};
+
+FTP.prototype.mkdir = function(path, cb) {
+  if (this._state !== 'authorized')
+    return false;
+  return this.send('MKD', path, cb);
+};
+
+FTP.prototype.rmdir = function(path, cb) {
+  if (this._state !== 'authorized')
+    return false;
+  if (cb && cb.error ) {
+    cbs.error = cb.error;  
+  }
 
   var self = this;
   return this.send('PASV', function(e, outstream) {
