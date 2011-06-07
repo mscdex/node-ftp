@@ -44,8 +44,10 @@ FTP.prototype.connect = function(port, host) {
     this._dataSock.end();
 
   var connTimeout = setTimeout(function() {
-    self._socket.destroy();
-    self._socket = undefined;
+    if (self._socket) {
+	  self._socket.destroy();
+	  self._socket = undefined;
+	}
     self.emit('timeout');
   }, this.options.connTimeout);
   socket = this._socket = net.createConnection(port, host);
