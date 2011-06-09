@@ -1,4 +1,4 @@
-lavar util = require('util'),
+var util = require('util'),
     net = require('net'),
     EventEmitter = require('events').EventEmitter,
     XRegExp = require('./xregexp'),
