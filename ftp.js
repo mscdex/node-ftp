@@ -2,11 +2,12 @@ var util = require('util'),
     net = require('net'),
     EventEmitter = require('events').EventEmitter,
     XRegExp = require('./xregexp'),
-    reXListUnix = XRegExp.cache('^(?<type>[\\-ld])(?<permission>([\\-r][\\-w][\\-xs]){3})\\s+(?<inodes>\\d+)\\s+(?<owner>\\w+)\\s+(?<group>\\w+)\\s+(?<size>\\d+)\\s+(?<timestamp>((?<month1>\\w{3})\\s+(?<date1>\\d{1,2})\\s+(?<hour>\\d{1,2}):(?<minute>\\d{2}))|((?<month2>\\w{3})\\s+(?<date2>\\d{1,2})\\s+(?<year>\\d{4})))\\s+(?<name>.+)$'),
+    reXListUnix = XRegExp.cache('^(?<type>[\\-ld])(?<permission>([\\-r][\\-w][\\-xs]){3})\\s+(?<inodes>\\d+)\\s+(?<owner>\\S+)\\s+(?<group>\\S+)\\s+(?<size>\\d+)\\s+(?<timestamp>((?<month1>\\w{3})\\s+(?<date1>\\d{1,2})\\s+(?<hour>\\d{1,2}):(?<minute>\\d{2}))|((?<month2>\\w{3})\\s+(?<date2>\\d{1,2})\\s+(?<year>\\d{4})))\\s+(?<name>.+)$'),
     reXListMSDOS = XRegExp.cache('^(?<month>\\d{2})(?:\\-|\\/)(?<date>\\d{2})(?:\\-|\\/)(?<year>\\d{2,4})\\s+(?<hour>\\d{2}):(?<minute>\\d{2})\\s{0,1}(?<ampm>[AaMmPp]{1,2})\\s+(?:(?<size>\\d+)|(?<isdir>\\<DIR\\>))\\s+(?<name>.+)$'),
     reXTimeval = XRegExp.cache('^(?<year>\\d{4})(?<month>\\d{2})(?<date>\\d{2})(?<hour>\\d{2})(?<minute>\\d{2})(?<second>\\d+)$'),
     reKV = /(.+?)=(.+?);/,
-    debug = false;
+    debug = function() {};
+    //debug = console.log;
 
 var FTP = module.exports = function(options) {
   this._socket = undefined;
@@ -21,7 +22,7 @@ var FTP = module.exports = function(options) {
     port: 21,
     /*secure: false,*/
     connTimeout: 15000, // in ms
-    debug: false/*,
+    debug: debug/*,
     active: false*/ // if numerical, is the port number, otherwise should be false
                   // to indicate use of passive mode
   };
@@ -30,6 +31,37 @@ var FTP = module.exports = function(options) {
     debug = this.options.debug;
 };
 util.inherits(FTP, EventEmitter);
+
+FTP.prototype._lineReader = function(stream, fn) {
+  this._lineQueue = [];
+  var queue = this._lineQueue;
+  var split = function(str) {
+    var nl_idx = str.indexOf("\n");
+    var cr_idx = str.indexOf("\r");
+    if (nl_idx >= 0 || cr_idx >= 0) {
+      if (nl_idx >= 0 && cr_idx >= 0) {
+        var idx = nl_idx > cr_idx ? cr_idx : nl_idx;
+      } else if (nl_idx >= 0) {
+        var idx = nl_idx;
+      } else if (cr_idx >= 0) {
+        var idx = cr_idx;
+      }
+      queue.push(str.slice(0,idx));
+      var tmp = queue.join('');
+      queue = []
+      tmp.length && fn(tmp);
+      split(str.slice(idx+1, str.length));
+    } else {
+      queue.push(str);
+    }
+  }
+  stream.on('data', function(chunk) {
+    split(chunk.toString('utf-8'))
+  })
+  stream.on('end', function() {
+    split("\n");
+  })
+}
 
 FTP.prototype.connect = function(port, host) {
   var self = this, socket = this._socket, curData = '';
@@ -48,17 +80,16 @@ FTP.prototype.connect = function(port, host) {
     self._socket = undefined;
     self.emit('timeout');
   }, this.options.connTimeout);
+
   socket = this._socket = net.createConnection(port, host);
   socket.setEncoding('utf8');
   socket.setTimeout(0);
   socket.on('connect', function() {
     clearTimeout(connTimeout);
-    if (debug)
-      debug('Connected');
+    debug('Connected');
   });
   socket.on('end', function() {
-    if (debug)
-      debug('Disconnected');
+    debug('Disconnected');
     if (self._dataSocket)
       self._dataSocket.end();
     self.emit('end');
@@ -72,18 +103,12 @@ FTP.prototype.connect = function(port, host) {
   socket.on('error', function(err) {
     self.emit('error', err);
   });
-  socket.on('data', function(data) {
-    curData += data;
-    if (/(?:\r\n|\n)$/.test(curData)) {
-      var resps = parseResponses(curData.split(/\r\n|\n/)), processNext = false;
+  this._lineReader(socket, function(line) {
+      debug("Response-Line:"+util.inspect(line));
+      var resps = parseResponses([line]), processNext = false;
       if (resps.length === 0)
         return;
-      curData = '';
-      if (debug) {
-        for (var i=0,len=resps.length; i<len; ++i)
-          debug('Response: code = ' + resps[i][0]
-                + (resps[i][1] ? '; text = ' + util.inspect(resps[i][1]) : ''));
-      }
+      debug('Response: code = ' + resps[0][0] + (resps[0][1] ? '; text = ' + util.inspect(resps[0][1]) : ''));
 
       for (var i=0,code,text,group,len=resps.length; i<len; ++i) {
         code = resps[i][0];
@@ -105,8 +130,7 @@ FTP.prototype.connect = function(port, host) {
                   else
                     self._feat[feats[i].toUpperCase()] = true;
                 }
-                if (debug)
-                  debug('Features: ' + util.inspect(self._feat));
+                debug('Features: ' + util.inspect(self._feat));
               }
               self.emit('connect');
             });
@@ -174,7 +198,6 @@ FTP.prototype.connect = function(port, host) {
       }
       if (processNext)
         self.send();
-    }
   });
 };
 
@@ -261,19 +284,35 @@ FTP.prototype.putStream = function(destpath, cb) {
   if (this._state !== 'authorized')
     return false;
 
-  instream.pause();
-
   var self = this;
   return this.send('PASV', function(e, outstream) {
-    if (e)
-      return cb(null, e);
-
-    var r = self.send('STOR', destpath, function(a) { cb(null, a) });
-    if (r) {
-        cb(outstream);
+    if (e) {
+      debug("PASV Error");
+      return cb(e);
+    }
+    var reach_end = 2;
+    outstream.on('end', function() {
+      debug("FTP.prototype.putStream:END");
+      if (!--reach_end) {
+        cb();    
+        outstream.emit('success');
       }
-    } else
-      cb(null, new Error('Connection severed'));
+    })
+
+    var r = self.send('STOR', destpath, function(a) { 
+      debug("STOR Done:"+util.inspect(a));
+      if (!--reach_end) {
+        cb();    
+        outstream.emit('success');
+      }
+    });
+    if (r) {
+      cb(null, outstream);
+      //outstream.listeners(event)
+    } else {
+      debug("STOR Error");
+      cb(new Error('Connection severed'));
+    }
   });
 }
 
@@ -538,8 +577,7 @@ FTP.prototype.send = function(cmd, params, cb) {
   if (this._queue.length) { 
     var fullcmd = this._queue[0][0]
                   + (this._queue[0].length === 3 ? ' ' + this._queue[0][1] : '');
-    if (debug)
-      debug('> ' + fullcmd);
+    debug('> ' + fullcmd);
     this._socket.write(fullcmd + '\r\n');
   }
 
@@ -595,7 +633,6 @@ FTP.prototype._pasvConnect = function() {
           self._callCb(new Error('Connection severed'));
       }, this.options.connTimeout);
 
-  if (debug)
     debug('(PASV) About to attempt data connection to: ' + this._pasvIP
           + ':' + this._pasvPort);
 
@@ -603,21 +640,18 @@ FTP.prototype._pasvConnect = function() {
   
   this._dataSock.on('connect', function() {
     clearTimeout(pasvTimeout);
-    if (debug)
-      debug('(PASV) Data connection successful');
+    debug('(PASV) Data connection successful');
     self._callCb(self._dataSock);
   });
   this._dataSock.on('end', function() {
-    if (debug)
-      debug('(PASV) Data connection closed');
+    debug('(PASV) Data connection closed');
     self._dataSock = self._pasvPort = self._pasvIP = undefined;
   });
   this._dataSock.on('close', function() {
     clearTimeout(pasvTimeout);
   });
   this._dataSock.on('error', function(err) {
-    if (debug)
-      debug('(PASV) Error: ' + err);
+    debug('(PASV) Error: ' + err);
     self._callCb(err);
     self._dataSock = self._pasvPort = self._pasvIP = undefined;
   });
@@ -648,8 +682,7 @@ FTP.prototype._callCb = function(result) {
 function processDirLines(lines, emitter, type) {
   for (var i=0,result,len=lines.length; i<len; ++i) {
     if (lines[i].length) {
-      if (debug)
-        debug('(PASV) Got ' + type + ' line: ' + lines[i]);
+      debug('(PASV) Got ' + type + ' line: ' + lines[i]);
       if (type === 'LIST')
         result = parseList(lines[i]);
       else if (type === 'MLSD')
