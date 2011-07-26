@@ -66,7 +66,7 @@ Examples
         // Assume we have the same connection 'conn' from before and are currently
         // authenticated ...
         var fs = require('fs');
-        conn.get('foo.txt', function(e, inStream) {
+        conn.get('foo.txt', function(e, stream) {
           if (e)
             throw e;
           stream.on('success', function() {
@@ -76,7 +76,7 @@ Examples
             console.log('ERROR during get(): ' + util.inspect(e));
             conn.end();
           });
-          inStream.pipe(fs.createWriteStream('localfoo.txt'));
+          stream.pipe(fs.createWriteStream('localfoo.txt'));
         });
 
 * Upload local file 'foo.txt' to the server:
