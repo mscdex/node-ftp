@@ -264,57 +264,25 @@ FTP.prototype.get = function(path, cb) {
     return false;
 
   var self = this;
-  return this.send('PASV', function(e, stream) {
+  return this._setPassive(function(e, outconnection) {
     if (e)
       return cb(e);
 
+    var outstream
     var r = self.send('RETR', path, function(e) {
               if (e)
-                return stream.emit('error', e);
-              stream.emit('success');
+                return outstream.emit('error', e);
+              outstream.emit('success');
             });
     if (r)
-      cb(undefined, stream);
+      outconnection(function(err, ostream) { 
+        outstream = ostream
+        cb(undefined, outstream); 
+      })
     else
       cb(new Error('Connection severed'));
   });
 };
-
-FTP.prototype.putStream = function(destpath, cb) {
-  if (this._state !== 'authorized')
-    return false;
-
-  var self = this;
-  return this.send('PASV', function(e, outstream) {
-    if (e) {
-      debug("PASV Error");
-      return cb(e);
-    }
-    var reach_end = 2;
-    outstream.on('end', function() {
-      debug("FTP.prototype.putStream:END");
-      if (!--reach_end) {
-        cb();    
-        outstream.emit('success');
-      }
-    })
-
-    var r = self.send('STOR', destpath, function(a) { 
-      debug("STOR Done:"+util.inspect(a));
-      if (!--reach_end) {
-        cb();    
-        outstream.emit('success');
-      }
-    });
-    if (r) {
-      cb(null, outstream);
-      //outstream.listeners(event)
-    } else {
-      debug("STOR Error");
-      cb(new Error('Connection severed'));
-    }
-  });
-}
 
 FTP.prototype.put = function(instream, destpath, cb) {
   if (this._state !== 'authorized' || !instream.readable)
@@ -323,13 +291,18 @@ FTP.prototype.put = function(instream, destpath, cb) {
   instream.pause();
 
   var self = this;
-  return this.send('PASV', function(e, outstream) {
+  return this._setPassive(function(e, outconnection) {
     if (e)
       return cb(e);
 
     var r = self.send('STOR', destpath, cb);
-    if (r)
-      instream.pipe(outstream);
+    if (r) {
+      outconnection(function(err, outstream) {
+//console.log("START-PUT-PIPE:", arguments)
+        instream.resume()
+        instream.pipe(outstream);
+      })
+    }
     else
       cb(new Error('Connection severed'));
   });
@@ -342,13 +315,13 @@ FTP.prototype.append = function(instream, destpath, cb) {
   instream.pause();
 
   var self = this;
-  return this.send('PASV', function(e, outstream) {
+  return this._setPassive(function(e, outconnection) {
     if (e)
       return cb(e);
 
     var r = self.send('APPE', destpath, cb);
     if (r)
-      instream.pipe(outstream);
+      outconnection(function(outstream) { instream.pipe(outstream); })
     else
       cb(new Error('Connection severed'));
   });
@@ -368,13 +341,13 @@ FTP.prototype.rmdir = function(path, cb) {
   }
 
   var self = this;
-  return this.send('PASV', function(e, outstream) {
+  return this._setPassive(function(e, outconnection) {
     if (e)
       return cb(e);
 
     var r = self.send('STOR', destpath, cb);
     if (r)
-      instream.pipe(outstream);
+      outconnection(function(outstream) { instream.pipe(outstream); })
     else
       cb(new Error('Connection severed'));
   });
@@ -387,13 +360,13 @@ FTP.prototype.append = function(instream, destpath, cb) {
   instream.pause();
 
   var self = this;
-  return this.send('PASV', function(e, outstream) {
+  return this._setPassive(function(e, outconnection) {
     if (e)
       return cb(e);
 
     var r = self.send('APPE', destpath, cb);
     if (r)
-      instream.pipe(outstream);
+      outconnection(function(outstream) { instream.pipe(outstream); })
     else
       cb(new Error('Connection severed'));
   });
@@ -452,74 +425,36 @@ FTP.prototype.list = function(path, cb) {
     path = undefined;
   }
 
-  var self = this, emitter = new EventEmitter(), parms;
-  /*if (parms = this._feat['MLST']) {
-    var type = undefined,
-        cbTemp = function(e, text) {
-          if (e) {
-            if (!type && e.code === 550) { // path was a file not a dir.
-              type = 'file';
-              if (!self.send('MLST', path, cbTemp))
-                return cb(new Error('Connection severed'));
-              return;
-            } else if (!type && e.code === 425) {
-              type = 'pasv';
-              if (!self._pasvGetLines(emitter, 'MLSD', cbTemp))
-                return cb(new Error('Connection severed'));
-              return;
-            }
-            if (type === 'dir')
-              return emitter.emit('error', e);
-            else
-              return cb(e);
-          }
-          if (type === 'file') {
-            cb(undefined, emitter);
-            var lines = text.split(/\r\n|\n/), result;
-            lines.shift();
-            lines.pop();
-            lines.pop();
-            result = parseMList(lines[0]);
-            emitter.emit((typeof result === 'string' ? 'raw' : 'entry'), result);
-            emitter.emit('end');
-            emitter.emit('success');
-          } else if (type === 'pasv') {
-            type = 'dir';
-            if (path)
-              r = self.send('MLSD', path, cbTemp);
-            else
-              r = self.send('MLSD', cbTemp);
-            if (r)
-              cb(undefined, emitter);
-            else
-              cb(new Error('Connection severed'));
-          } else if (type === 'dir')
-            emitter.emit('success');
-        };
+  var self = this
+  var emitter = new EventEmitter()
+  var parms
+
+
+  this._setPassive(function(e, conn) {
+    if (e)
+      return cb(e);
+
+    var cbTemp = function(e) {
+          if (e)
+            return emitter.emit('error', e);
+          emitter.emit('success');
+        }
     if (path)
-      return this.send('MLSD', path, cbTemp);
+      var r = self.send('LIST', path, cbTemp);
     else
-      return this.send('MLSD', cbTemp);
-  } else {*/
-    // Otherwise use the standard way of fetching a listing
-    this._pasvGetLines(emitter, 'LIST', function(e) {
-      if (e)
-        return cb(e);
-      var cbTemp = function(e) {
-            if (e)
-              return emitter.emit('error', e);
-            emitter.emit('success');
-          }, r;
-      if (path)
-        r = self.send('LIST', path, cbTemp);
-      else
-        r = self.send('LIST', cbTemp);
-      if (r)
-        cb(undefined, emitter);
-      else
-        cb(new Error('Connection severed'));
-    });
-  //}
+      var r = self.send('LIST', cbTemp);
+
+    conn(function(err, stream) {
+      self._pasvGetLines(stream, emitter, 'LIST', function(e) {
+        if (e)
+          return cb(e);
+        if (r)
+          cb(undefined, emitter);
+        else
+          cb(new Error('Connection severed'));
+      })
+    })
+  });
 };
 
 /* Extended features */
@@ -584,36 +519,64 @@ FTP.prototype.send = function(cmd, params, cb) {
   return true;
 };
 
-FTP.prototype._pasvGetLines = function(emitter, type, cb) {
-  return this.send('PASV', function(e, stream) {
-    if (e)
-      return cb(e);
-    var curData = '', lines;
-    stream.setEncoding('utf8');
-    stream.on('data', function(data) {
-      curData += data;
-      if (/\r\n|\n/.test(curData)) {
-        if (curData[curData.length-1] === '\n') {
-          lines = curData.split(/\r\n|\n/);
-          curData = '';
-        } else {
-          var pos = curData.lastIndexOf('\r\n');
-          if (pos === -1)
-            pos = curData.lastIndexOf('\n');
-          lines = curData.substring(0, pos).split(/\r\n|\n/);
-          curData = curData.substring(pos+1);
-        }
-        processDirLines(lines, emitter, type);
+FTP.prototype._setPassive = function(cb) {
+  if (!this.options.active) { 
+    this.send('PASV', cb)
+  } else {
+    var self = this
+    var Connected = function(callback) { 
+//console.log("CONNECTION:",arguments);
+      Connected = callback
+    }
+    server = net.createServer(function(connection) {
+      server.close()
+//console.log("DATA:",connection);
+      Connected(null, connection)
+    })
+
+//console.log("SOCKET:",this._socket.address());
+    server.listen(0, this._socket.address().address, function(err, sock) {
+//console.log("NEWSOCKET:", server.address())
+      var addr = server.address()
+      self.send("PORT "+addr.address.replace(/\./g,",")+","+((addr.port>>8)&0xff)+","+((addr.port>>0)&0xff), 
+      function(err, stream) {
+        if (err) { return cb(e); }
+        cb(null, Connected)
+//console.log("PORT: DONE");
+      })
+    })
+//    fn(null, null)
+  }
+}
+
+FTP.prototype._pasvGetLines = function(stream, emitter, type, cb) {
+  var curData = ''
+  var lines;
+
+  stream.setEncoding('utf8');
+  stream.on('data', function(data) {
+    curData += data;
+    if (/\r\n|\n/.test(curData)) {
+      if (curData[curData.length-1] === '\n') {
+        lines = curData.split(/\r\n|\n/);
+        curData = '';
+      } else {
+        var pos = curData.lastIndexOf('\r\n');
+        if (pos === -1)
+          pos = curData.lastIndexOf('\n');
+        lines = curData.substring(0, pos).split(/\r\n|\n/);
+        curData = curData.substring(pos+1);
       }
-    });
-    stream.on('end', function() {
-      emitter.emit('end');
-    });
-    stream.on('error', function(e) {
-      emitter.emit('error', e);
-    });
-    cb();
+      processDirLines(lines, emitter, type);
+    }
   });
+  stream.on('end', function() {
+    emitter.emit('end');
+  });
+  stream.on('error', function(e) {
+    emitter.emit('error', e);
+  });
+  cb();
 };
 
 FTP.prototype._pasvConnect = function() {
@@ -641,7 +604,10 @@ FTP.prototype._pasvConnect = function() {
   this._dataSock.on('connect', function() {
     clearTimeout(pasvTimeout);
     debug('(PASV) Data connection successful');
-    self._callCb(self._dataSock);
+    self._callCb(function(cb) { 
+//console.log("PASV",arguments)
+      cb(undefined, self._dataSock) 
+    });
   });
   this._dataSock.on('end', function() {
     debug('(PASV) Data connection closed');

@@ -8,7 +8,7 @@ function formatDate(d) {
 }
 
 localName = "doof"
-remoteName = "/images/ams/doof"
+remoteName = "images/ams/doof"
 try {
   config = JSON.parse(fs.readFileSync("config")); 
 } catch (e) {
@@ -80,32 +80,25 @@ test = function(conn, size, cb) {
   conn.delete(remoteName, function() {
     console.log("DONE-DELETE");     
     getSha1(localName, function(sha1) {
-      conn.putStream(remoteName, function(error, wStream) {
+      var rStream = fs.ReadStream(localName);
+      conn.put(rStream, remoteName, function(error) {
         if (error) {
-          console.log("putStream:ERROR:"+error);
+          console.log("put:ERROR:"+error);
           return;
         }
-        if (!error && !wStream) {
-          console.log("putStream:DONE");
-          return;
-        }
-        var rStream = fs.ReadStream(localName);
-        rStream.pipe(wStream);
-        wStream.on('success', function() {
-          console.log("putStream:SUCCESS"); 
-          list(conn, size, function(iter) {
-            iter.on('success', function() {
-              conn.get(remoteName, function(e, s) {
-                getSha1Stream(s, function(sum) {
-                  if (sha1 != sum) {
-                    console.log("ERROR:SHA1:"+sum+"<>"+sha1);
-                  } else {
-                    console.log("GET:FINE");
-                  }
-                })
-                s.on('success', function() {
-                  cb()
-                })
+        console.log("put:SUCCESS"); 
+        list(conn, size, function(iter) {
+          iter.on('success', function() {
+            conn.get(remoteName, function(e, s) {
+              getSha1Stream(s, function(sum) {
+                if (sha1 != sum) {
+                  console.log("ERROR:SHA1:"+sum+"<>"+sha1);
+                } else {
+                  console.log("GET:FINE");
+                }
+              })
+              s.on('success', function() {
+                cb()
               })
             })
           })
@@ -115,7 +108,7 @@ test = function(conn, size, cb) {
   })
 }
 
-conn = new FTPClient({ host: config.hostName });
+conn = new FTPClient({ host: config.hostName, debug: eval(config.debug), active: config.active });
 conn.on('connect', function() {
   conn.auth(config.user, config.password, function(e) {
     if (e)
