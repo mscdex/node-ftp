@@ -269,8 +269,10 @@ FTP.prototype.put = function(instream, destpath, cb) {
       return cb(e);
 
     var r = self.send('STOR', destpath, cb);
-    if (r)
-      instream.pipe(outstream);
+    if (r) {
+      instream.resume();
+      instream.pipe(outstream); 
+    }                                 
     else
       cb(new Error('Connection severed'));
   });
@@ -288,8 +290,10 @@ FTP.prototype.append = function(instream, destpath, cb) {
       return cb(e);
 
     var r = self.send('APPE', destpath, cb);
-    if (r)
+    if (r) {
+      instream.resume();
       instream.pipe(outstream);
+    }
     else
       cb(new Error('Connection severed'));
   });
