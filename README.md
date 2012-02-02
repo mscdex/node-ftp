@@ -9,6 +9,10 @@ Requirements
 
 * [node.js](http://nodejs.org/) -- v0.4.0 or newer
 
+Install
+============
+
+npm install ftp
 
 Examples
 ========
