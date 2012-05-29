@@ -17,7 +17,7 @@ npm install ftp
 Examples
 ========
 
-* Get a directory listing of the current working directory:
+* Get a pretty-printed directory listing of the current (remote) working directory:
 
         var FTPClient = require('./ftp'), util = require('util'), conn;
         function formatDate(d) {
