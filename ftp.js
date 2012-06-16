@@ -270,8 +270,8 @@ FTP.prototype.put = function(instream, destpath, cb) {
 
     var r = self.send('STOR', destpath, cb);
     if (r) {
-      instream.resume();
       instream.pipe(outstream); 
+      instream.resume();
     }                                 
     else
       cb(new Error('Connection severed'));
