@@ -270,10 +270,9 @@ FTP.prototype.put = function(instream, destpath, cb) {
 
     var r = self.send('STOR', destpath, cb);
     if (r) {
-      instream.pipe(outstream); 
+      instream.pipe(outstream);
       instream.resume();
-    }                                 
-    else
+    } else
       cb(new Error('Connection severed'));
   });
 };
@@ -474,7 +473,7 @@ FTP.prototype.send = function(cmd, params, cb) {
     else
       this._queue.push([cmd, params, cb]);
   }
-  if (this._queue.length) { 
+  if (this._queue.length) {
     var fullcmd = this._queue[0][0]
                   + (this._queue[0].length === 3 ? ' ' + this._queue[0][1] : '');
     if (debug)
@@ -524,12 +523,12 @@ FTP.prototype._pasvConnect = function() {
   var self = this,
       pasvTimeout = setTimeout(function() {
         var r = self.send('ABOR', function(e) {
-                  if (e)
-                    return self._callCb(e);
-                  self._dataSock.destroy();
-                  self._dataSock = self._pasvPort = self._pasvIP = undefined;
-                  self._callCb(new Error('(PASV) Data connection timed out while connecting'));
-                });
+          self._dataSock.end();
+          self._pasvPort = self._pasvIP = undefined;
+          if (e)
+            return self._callCb(e);
+          self._callCb(new Error('(PASV) Data connection timed out while connecting'));
+        });
         if (!r)
           self._callCb(new Error('Connection severed'));
       }, this.options.connTimeout);
@@ -538,28 +537,31 @@ FTP.prototype._pasvConnect = function() {
     debug('(PASV) About to attempt data connection to: ' + this._pasvIP
           + ':' + this._pasvPort);
 
-  this._dataSock = net.createConnection(this._pasvPort, this._pasvIP);
-  
-  this._dataSock.on('connect', function() {
-    clearTimeout(pasvTimeout);
-    if (debug)
-      debug('(PASV) Data connection successful');
-    self._callCb(self._dataSock);
-  });
-  this._dataSock.on('end', function() {
-    if (debug)
-      debug('(PASV) Data connection closed');
-    self._dataSock = self._pasvPort = self._pasvIP = undefined;
-  });
-  this._dataSock.on('close', function() {
-    clearTimeout(pasvTimeout);
-  });
-  this._dataSock.on('error', function(err) {
-    if (debug)
-      debug('(PASV) Error: ' + err);
-    self._callCb(err);
-    self._dataSock = self._pasvPort = self._pasvIP = undefined;
-  });
+  if (!this._dataSock) {
+    this._dataSock = new net.Socket();
+    this._dataSock.on('connect', function() {
+      clearTimeout(pasvTimeout);
+      if (debug)
+        debug('(PASV) Data connection successful');
+      self._callCb(self._dataSock);
+    });
+    this._dataSock.on('end', function() {
+      if (debug)
+        debug('(PASV) Data connection closed');
+      self._pasvPort = self._pasvIP = undefined;
+    });
+    this._dataSock.on('close', function() {
+      clearTimeout(pasvTimeout);
+    });
+    this._dataSock.on('error', function(err) {
+      if (debug)
+        debug('(PASV) Error: ' + err);
+      self._pasvPort = self._pasvIP = undefined
+      self._callCb(err);
+    });
+  }
+
+  this._dataSock.connect(this._pasvPort, this._pasvIP);
 
   return true;
 };
@@ -719,7 +721,7 @@ function makeError(code, text) {
 }
 
 function getGroup(code) {
-  return parseInt(code/10)%10;
+  return parseInt(code / 10) % 10;
 }
 
 /**
