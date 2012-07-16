@@ -48,7 +48,7 @@ FTP.prototype.connect = function(port, host) {
     self._socket = undefined;
     self.emit('timeout');
   }, this.options.connTimeout);
-  socket = this._socket = net.createConnection(port, host);
+  socket = this._socket = new net.Socket();
   socket.setEncoding('utf8');
   socket.setTimeout(0);
   socket.on('connect', function() {
@@ -176,6 +176,7 @@ FTP.prototype.connect = function(port, host) {
         self.send();
     }
   });
+  socket.connect(port, host);
 };
 
 FTP.prototype.end = function() {
