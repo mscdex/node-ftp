@@ -168,6 +168,8 @@ These are actions defined by the "original" FTP RFC (959) and are generally supp
 
 * **cwd**(String:newPath, Function:callback) - _Boolean:success_ - Changes the current working directory to newPath. The callback has these parameters: the error (undefined if none).
 
+* **cdup**(Function:callback) - _Boolean:success_ - Changes the working directory to the parent of the current directory. The callback has these parameters: the error (undefined if none).
+
 * **get**(String:filename, Function:callback) - _Boolean:success_ - Retrieves a file from the server. The callback has these parameters: the error (undefined if none) and a ReadableStream. The ReadableStream will emit 'success' if the file was successfully transferred.
 
 * **put**(ReadableStream:inStream, String:filename, Function:callback) - _Boolean:success_ - Sends a file to the server. The callback has these parameters: the error (undefined if none).
