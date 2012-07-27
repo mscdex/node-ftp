@@ -237,6 +237,12 @@ FTP.prototype.cwd = function(path, cb) {
   return this.send('CWD', path, cb);
 };
 
+FTP.prototype.cdup = function(cb) {
+  if (this._state !== 'authorized')
+    return false;
+  return this.send('CDUP', cb);
+};
+
 FTP.prototype.get = function(path, cb) {
   if (this._state !== 'authorized')
     return false;
