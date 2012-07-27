@@ -527,8 +527,9 @@ FTP.prototype._pasvConnect = function() {
   if (!this._pasvPort)
     return false;
 
-  var self = this,
-      pasvTimeout = setTimeout(function() {
+  var self = this;
+
+  this._pasvTimeout = setTimeout(function() {
         var r = self.send('ABOR', function(e) {
           self._dataSock.end();
           self._pasvPort = self._pasvIP = undefined;
@@ -547,7 +548,7 @@ FTP.prototype._pasvConnect = function() {
   if (!this._dataSock) {
     this._dataSock = new net.Socket();
     this._dataSock.on('connect', function() {
-      clearTimeout(pasvTimeout);
+      clearTimeout(self._pasvTimeout);
       if (debug)
         debug('(PASV) Data connection successful');
       self._callCb(self._dataSock);
@@ -558,7 +559,7 @@ FTP.prototype._pasvConnect = function() {
       self._pasvPort = self._pasvIP = undefined;
     });
     this._dataSock.on('close', function() {
-      clearTimeout(pasvTimeout);
+      clearTimeout(self._pasvTimeout);
     });
     this._dataSock.on('error', function(err) {
       if (debug)
