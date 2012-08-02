@@ -362,7 +362,7 @@ FTP.prototype.status = function(cb) {
   return this.send('STAT', cb);
 };
 
-FTP.prototype.list = function(path, cb) {
+FTP.prototype.list = function(path, streaming, cb) {
   if (this._state !== 'authorized')
     return false;
 
@@ -372,73 +372,23 @@ FTP.prototype.list = function(path, cb) {
   }
 
   var self = this, emitter = new EventEmitter(), parms;
-  /*if (parms = this._feat['MLST']) {
-    var type = undefined,
-        cbTemp = function(e, text) {
-          if (e) {
-            if (!type && e.code === 550) { // path was a file not a dir.
-              type = 'file';
-              if (!self.send('MLST', path, cbTemp))
-                return cb(new Error('Connection severed'));
-              return;
-            } else if (!type && e.code === 425) {
-              type = 'pasv';
-              if (!self._pasvGetLines(emitter, 'MLSD', cbTemp))
-                return cb(new Error('Connection severed'));
-              return;
-            }
-            if (type === 'dir')
-              return emitter.emit('error', e);
-            else
-              return cb(e);
-          }
-          if (type === 'file') {
-            cb(undefined, emitter);
-            var lines = text.split(/\r\n|\n/), result;
-            lines.shift();
-            lines.pop();
-            lines.pop();
-            result = parseMList(lines[0]);
-            emitter.emit((typeof result === 'string' ? 'raw' : 'entry'), result);
-            emitter.emit('end');
-            emitter.emit('success');
-          } else if (type === 'pasv') {
-            type = 'dir';
-            if (path)
-              r = self.send('MLSD', path, cbTemp);
-            else
-              r = self.send('MLSD', cbTemp);
-            if (r)
-              cb(undefined, emitter);
-            else
-              cb(new Error('Connection severed'));
-          } else if (type === 'dir')
-            emitter.emit('success');
-        };
+  this._pasvGetLines(emitter, 'LIST', function(e) {
+    if (e)
+      return cb(e);
+    var cbTemp = function(e) {
+          if (e)
+            return emitter.emit('error', e);
+          emitter.emit('success');
+        }, r;
     if (path)
-      return this.send('MLSD', path, cbTemp);
+      r = self.send('LIST', path, cbTemp);
     else
-      return this.send('MLSD', cbTemp);
-  } else {*/
-    // Otherwise use the standard way of fetching a listing
-    this._pasvGetLines(emitter, 'LIST', function(e) {
-      if (e)
-        return cb(e);
-      var cbTemp = function(e) {
-            if (e)
-              return emitter.emit('error', e);
-            emitter.emit('success');
-          }, r;
-      if (path)
-        r = self.send('LIST', path, cbTemp);
-      else
-        r = self.send('LIST', cbTemp);
-      if (r)
-        cb(undefined, emitter);
-      else
-        cb(new Error('Connection severed'));
-    });
-  //}
+      r = self.send('LIST', cbTemp);
+    if (r)
+      cb(undefined, emitter);
+    else
+      cb(new Error('Connection severed'));
+  });
 };
 
 /* Extended features */
