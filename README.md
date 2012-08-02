@@ -135,7 +135,7 @@ These are actions defined by the "original" FTP RFC (959) and are generally supp
 
 * **auth**([String:username], [String:password], Function:callback) - _Boolean:success_ - Authenticates with the server (leave out username and password to log in as anonymous). The callback has these parameters: the error (undefined if none).
 
-* **list**([String:path], Function:callback) - _Boolean:success_ - Retrieves the directory listing of the specified path. If path is not supplied, the current working directory is used. The callback has these parameters: the error (undefined if none) and an EventEmitter. The EventEmitter emits the following events:
+* **list**([String:path], [Boolean:streamList], Function:callback) - _Boolean:success_ - Retrieves the directory listing of the specified path. If path is not supplied, the current working directory is used. If streamList is set to true, an EventEmitter will be passed to the callback, otherwise an array of directory entries will be passed in. The callback has these parameters: the error (undefined if none) and an EventEmitter or array. The EventEmitter emits the following events:
 
     * **entry**(Object:entryInfo) - Fires for each file or subdirectory. entryInfo contains the following possible properties:
         * **String:name** - The name of the entry.

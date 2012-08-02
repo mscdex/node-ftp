@@ -46,9 +46,18 @@ var FTP = module.exports = function(options) {
 util.inherits(FTP, EventEmitter);
 
 FTP.prototype.connect = function(port, host) {
-  var self = this, socket = this._socket, curData = '';
-  this.options.port = port = port || this.options.port;
-  this.options.host = host = host || this.options.host;
+  var self = this,
+      socket = this._socket,
+      curData = '';
+  if (typeof port === 'string')
+    this.options.host = port;
+  else if (typeof port === 'number')
+    this.options.port = port;
+  if (host !== undefined)
+    this.options.host = host;
+
+  host = this.options.host;
+  port = this.options.port;
 
   this._feat = {};
 
@@ -369,9 +378,15 @@ FTP.prototype.list = function(path, streaming, cb) {
   if (typeof path === 'function') {
     cb = path;
     path = undefined;
+    streaming = false;
+  }
+  if (typeof streaming === 'function') {
+    cb = streaming;
+    streaming = false;
   }
 
-  var self = this, emitter = new EventEmitter(), parms;
+  var self = this,
+      emitter = new EventEmitter();
   this._pasvGetLines(emitter, 'LIST', function(e) {
     if (e)
       return cb(e);
@@ -384,9 +399,21 @@ FTP.prototype.list = function(path, streaming, cb) {
       r = self.send('LIST', path, cbTemp);
     else
       r = self.send('LIST', cbTemp);
-    if (r)
-      cb(undefined, emitter);
-    else
+    if (r) {
+      if (!streaming) {
+        var entries = [];
+        emitter.on('entry', function(entry) {
+          entries.push(entry);
+        });
+        emitter.on('raw', function(line) {
+          entries.push(line);
+        });
+        emitter.on('end', function() {
+          cb(undefined, entries);
+        });
+      } else
+        cb(undefined, emitter);
+    } else
       cb(new Error('Connection severed'));
   });
 };
