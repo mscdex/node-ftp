@@ -408,8 +408,11 @@ FTP.prototype.list = function(path, streaming, cb) {
         emitter.on('raw', function(line) {
           entries.push(line);
         });
-        emitter.on('end', function() {
+        emitter.on('success', function() {
           cb(undefined, entries);
+        });
+        emitter.on('error', function(err) {
+          cb(err);
         });
       } else
         cb(undefined, emitter);
