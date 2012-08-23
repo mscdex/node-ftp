@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/mscdex/node-ftp.png)](http://travis-ci.org/mscdex/node-ftp)
 Description
 ===========
 
