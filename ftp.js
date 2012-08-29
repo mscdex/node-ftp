@@ -274,6 +274,7 @@ FTP.prototype.get = function(path, cb) {
     if (e)
       return cb(e);
 
+    stream._decoder = undefined;
     var r = self.send('RETR', path, function(e) {
               if (e)
                 return stream.emit('error', e);
@@ -297,6 +298,7 @@ FTP.prototype.put = function(instream, destpath, cb) {
     if (e)
       return cb(e);
 
+    stream._decoder = undefined;
     var r = self.send('STOR', destpath, cb);
     if (r) {
       instream.pipe(outstream);
@@ -379,6 +381,10 @@ FTP.prototype.list = function(path, streaming, cb) {
     cb = path;
     path = undefined;
     streaming = false;
+  } else if (typeof path === 'boolean') {
+    cb = streaming;
+    streaming = path;
+    path = undefined;
   }
   if (typeof streaming === 'function') {
     cb = streaming;
@@ -521,43 +527,39 @@ FTP.prototype._pasvConnect = function() {
 
   var self = this;
 
-  this._pasvTimeout = setTimeout(function() {
-        var r = self.send('ABOR', function(e) {
-          self._dataSock.end();
-          self._pasvPort = self._pasvIP = undefined;
-          if (e)
-            return self._callCb(e);
-          self._callCb(new Error('(PASV) Data connection timed out while connecting'));
-        });
-        if (!r)
-          self._callCb(new Error('Connection severed'));
-      }, this.options.connTimeout);
-
   this.debug&&this.debug('(PASV) About to attempt data connection to: '
                          + this._pasvIP + ':' + this._pasvPort);
 
-  if (!this._dataSock) {
-    this._dataSock = new net.Socket();
-    this._dataSock.on('connect', function() {
-      clearTimeout(self._pasvTimeout);
+    var s = this._dataSock = new net.Socket();
+    s.on('connect', function() {
+      clearTimeout(s._pasvTimeout);
       self.debug&&self.debug('(PASV) Data connection successful');
-      self._callCb(self._dataSock);
+      self._callCb(s);
     });
-    this._dataSock.on('end', function() {
+    s.on('end', function() {
       self.debug&&self.debug('(PASV) Data connection closed');
-      self._pasvPort = self._pasvIP = undefined;
     });
-    this._dataSock.on('close', function() {
+    s.on('close', function(had_err) {
       clearTimeout(self._pasvTimeout);
+      self._pasvPort = self._pasvIP = undefined;
+      self._dataSock = undefined;
     });
-    this._dataSock.on('error', function(err) {
+    s.on('error', function(err) {
       self.debug&&self.debug('(PASV) Error: ' + err);
-      self._pasvPort = self._pasvIP = undefined
       self._callCb(err);
     });
-  }
+    s._pasvTimeout = setTimeout(function() {
+      var r = self.send('ABOR', function(e) {
+        s.destroy();
+        if (e)
+          return self._callCb(e);
+        self._callCb(new Error('(PASV) Data connection timed out while connecting'));
+      });
+      if (!r)
+        self._callCb(new Error('Connection severed'));
+    }, this.options.connTimeout);
 
-  this._dataSock.connect(this._pasvPort, this._pasvIP);
+  s.connect(this._pasvPort, this._pasvIP);
 
   return true;
 };
