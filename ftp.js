@@ -30,8 +30,8 @@ var FTP = module.exports = function(options) {
   this._pasvPort = undefined;
   this._pasvIP = undefined;
   this._feat = undefined;
-  this.debug = false;
   this._queue = [];
+  this.debug = false;
   this.options = {
     host: 'localhost',
     port: 21,
@@ -72,7 +72,7 @@ FTP.prototype.connect = function(port, host) {
     self.emit('timeout');
   }, this.options.connTimeout);
   socket = this._socket = new net.Socket();
-  socket.setEncoding('utf8');
+  socket.setEncoding('binary');
   socket.setTimeout(0);
   socket.on('connect', function() {
     clearTimeout(connTimeout);
@@ -488,7 +488,7 @@ FTP.prototype._pasvGetLines = function(emitter, type, cb) {
     if (e)
       return cb(e);
     var curData = '', lines;
-    stream.setEncoding('utf8');
+    stream.setEncoding('binary');
     stream.on('data', function(data) {
       curData += data;
       if (/\r\n|\n/.test(curData)) {
