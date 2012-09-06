@@ -298,7 +298,7 @@ FTP.prototype.put = function(instream, destpath, cb) {
     if (e)
       return cb(e);
 
-    stream._decoder = undefined;
+    outstream._decoder = undefined;
     var r = self.send('STOR', destpath, cb);
     if (r) {
       instream.pipe(outstream);
