@@ -159,9 +159,9 @@ These are actions defined by the "original" FTP RFC (959) and are generally supp
 
 * **get**(<_string_>filename, <_function_>callback) - <_boolean_>success - Retrieves a file from the server. The callback has these parameters: the error (undefined if none) and a ReadableStream. The ReadableStream will emit 'success' if the file was successfully transferred.
 
-* **put**(<_ReadableStream_>inStream, <_string_>filename, <_function_>callback) - <_boolean_>success - Sends a file to the server. The callback has these parameters: the error (undefined if none).
+* **put**(<_mixed_>input, <_string_>filename, <_function_>callback) - <_boolean_>success - Sends a file to the server. The `input` can be a ReadableStream or a single Buffer. The callback has these parameters: the error (undefined if none).
 
-* **append**(<_ReadableStream_>inStream, <_string_>filename, <_function_>callback) - <_boolean_>success - Same as **put**, except if the file already exists, it will be appended to instead of overwritten.
+* **append**(<_mixed_>input, <_string_>filename, <_function_>callback) - <_boolean_>success - Same as **put**, except if the file already exists, it will be appended to instead of overwritten.
 
 * **mkdir**(<_string_>dirname, <_function_>callback) - <_boolean_>success - Creates a new directory on the server. The callback has these parameters: the error (undefined if none) and a string containing the path of the newly created directory.
 

@@ -287,11 +287,13 @@ FTP.prototype.get = function(path, cb) {
   });
 };
 
-FTP.prototype.put = function(instream, destpath, cb) {
-  if (this._state !== 'authorized' || !instream.readable)
+FTP.prototype.put = function(input, destpath, cb) {
+  var isBuffer = Buffer.isBuffer(input);
+  if (this._state !== 'authorized' || (!isBuffer && !input.readable))
     return false;
 
-  instream.pause();
+  if (!isBuffer)
+    input.pause();
 
   var self = this;
   return this.send('PASV', function(e, outstream) {
@@ -301,18 +303,23 @@ FTP.prototype.put = function(instream, destpath, cb) {
     outstream._decoder = undefined;
     var r = self.send('STOR', destpath, cb);
     if (r) {
-      instream.pipe(outstream);
-      instream.resume();
+      if (!isBuffer) {
+        input.pipe(outstream);
+        input.resume();
+      } else
+        outstream.end(input);
     } else
       cb(new Error('Connection severed'));
   });
 };
 
-FTP.prototype.append = function(instream, destpath, cb) {
-  if (this._state !== 'authorized' || !instream.readable)
+FTP.prototype.append = function(input, destpath, cb) {
+  var isBuffer = Buffer.isBuffer(input);
+  if (this._state !== 'authorized' || (!isBuffer && !input.readable))
     return false;
 
-  instream.pause();
+  if (!isBuffer)
+    input.pause();
 
   var self = this;
   return this.send('PASV', function(e, outstream) {
@@ -321,8 +328,11 @@ FTP.prototype.append = function(instream, destpath, cb) {
 
     var r = self.send('APPE', destpath, cb);
     if (r) {
-      instream.resume();
-      instream.pipe(outstream);
+      if (!isBuffer) {
+        input.resume();
+        input.pipe(outstream);
+      } else
+        outstream.end(input);
     }
     else
       cb(new Error('Connection severed'));
