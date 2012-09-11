@@ -166,7 +166,8 @@ FTP.prototype.connect = function(port, host) {
               throw new Error('Could not parse passive mode response: ' + text);
             self._pasvIP = parsed[1] + '.' + parsed[2] + '.' + parsed[3] + '.'
                           + parsed[4];
-            self._pasvPort = (parseInt(parsed[5]) * 256) + parseInt(parsed[6]);
+            self._pasvPort = (parseInt(parsed[5], 10) * 256)
+                             + parseInt(parsed[6], 10);
             self._pasvConnect();
             return;
           } else
@@ -440,13 +441,13 @@ FTP.prototype.list = function(path, streaming, cb) {
 /* Extended features */
 
 FTP.prototype.size = function(path, cb) {
-  if (this._state !== 'authorized' || !this._feat['SIZE'])
+  if (this._state !== 'authorized' || !this._feat.SIZE)
     return false;
   return this.send('SIZE', path, cb);
 };
 
 FTP.prototype.lastMod = function(path, cb) {
-  if (this._state !== 'authorized' || !this._feat['MDTM'])
+  if (this._state !== 'authorized' || !this._feat.MDTM)
     return false;
   return this.send('MDTM', path, function(e, text) {
     if (e)
@@ -465,8 +466,8 @@ FTP.prototype.lastMod = function(path, cb) {
 };
 
 FTP.prototype.restart = function(offset, cb) {
-  if (this._state !== 'authorized' || !this._feat['REST']
-      || !(/STREAM/i.test(this._feat['REST'])))
+  if (this._state !== 'authorized' || !this._feat.REST
+      || !(/STREAM/i.test(this._feat.REST)))
     return false;
   return this.send('REST', offset, cb);
 };
@@ -601,7 +602,7 @@ function processDirLines(lines, emitter, type, debug) {
       if (type === 'LIST')
         result = parseList(lines[i]);
       else if (type === 'MLSD')
-        result = parseMList(lines[i], numFields);
+        result = parseMList(lines[i]);
       emitter.emit((typeof result === 'string' ? 'raw' : 'entry'), result);
     }
   }
@@ -619,9 +620,9 @@ function parseResponses(lines) {
       } else
         match[3] = (match[3] ? multiline + match[3] : multiline);
       if (match[3].length)
-        resps.push([parseInt(match[1]), match[3]]);
+        resps.push([parseInt(match[1], 10), match[3]]);
       else
-        resps.push([parseInt(match[1])]);
+        resps.push([parseInt(match[1], 10)]);
       multiline = '';
     } else
       multiline += lines[i] + '\n';
@@ -748,7 +749,7 @@ function makeError(code, text) {
 }
 
 function getGroup(code) {
-  return parseInt(code / 10) % 10;
+  return parseInt(code / 10, 10) % 10;
 }
 
 /**
@@ -769,7 +770,7 @@ function extend() {
     i = 2;
   }
   // Handle case when target is a string or something (possible in deep copy)
-  if (typeof target !== "object" && !typeof target === 'function')
+  if (typeof target !== "object" && typeof target !== 'function')
     target = {};
   var isPlainObject = function(obj) {
     // Must be an Object.
@@ -784,7 +785,7 @@ function extend() {
       return false;
     // Own properties are enumerated firstly, so to speed up,
     // if last one is own, then all properties are own.
-    var last_key;
+    var last_key, key;
     for (key in obj)
       last_key = key;
     return typeof last_key === "undefined" || hasOwnProperty.call(obj, last_key);
