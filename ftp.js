@@ -266,6 +266,18 @@ FTP.prototype.cdup = function(cb) {
   return this.send('CDUP', cb);
 };
 
+FTP.prototype.binary = function(cb) {
+  if (this._state !== 'authorized')
+    return false;
+  return this.send('TYPE I', cb);
+}
+
+FTP.protype.ascii = function(cb) {
+  if (this._state !== 'authorized')
+    return false;
+  return this.send('TYPE A', cb);
+}
+
 FTP.prototype.get = function(path, cb) {
   if (this._state !== 'authorized')
     return false;
