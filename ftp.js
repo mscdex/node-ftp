@@ -272,7 +272,7 @@ FTP.prototype.binary = function(cb) {
   return this.send('TYPE I', cb);
 }
 
-FTP.protype.ascii = function(cb) {
+FTP.prototype.ascii = function(cb) {
   if (this._state !== 'authorized')
     return false;
   return this.send('TYPE A', cb);
