@@ -145,7 +145,7 @@ FTP.prototype.connect = function(port, host) {
         if (group === 0) {
           // all in here are errors except 200
           if (code === 200)
-            self._callCb();
+            self._callCb(text);
           else
             self._callCb(makeError(code, text));
         } else if (group === 1) {
@@ -158,7 +158,7 @@ FTP.prototype.connect = function(port, host) {
           // control/data connection-related
           if (code === 226) {
             // closing data connection, file action request successful
-            self._callCb();
+            self._callCb(text);
           } else if (code === 227) {
             // server entering passive mode
             var parsed = text.match(/([\d]+),([\d]+),([\d]+),([\d]+),([-\d]+),([-\d]+)/);
@@ -288,7 +288,7 @@ FTP.prototype.get = function(path, cb) {
   });
 };
 
-FTP.prototype.put = function(input, destpath, cb) {
+FTP.prototype._put = function(input, destpath, cb) {
   var isBuffer = Buffer.isBuffer(input);
   if (this._state !== 'authorized' || (!isBuffer && !input.readable))
     return false;
@@ -302,7 +302,11 @@ FTP.prototype.put = function(input, destpath, cb) {
       return cb(e);
 
     outstream._decoder = undefined;
-    var r = self.send('STOR', destpath, cb);
+    if(destpath){
+      var r = self.send('STOR', destpath, cb);
+    }else{
+      var r = self.send('STOT', cb);
+    }
     if (r) {
       if (!isBuffer) {
         input.pipe(outstream);
@@ -312,6 +316,14 @@ FTP.prototype.put = function(input, destpath, cb) {
     } else
       cb(new Error('Connection severed'));
   });
+};
+
+FTP.prototype.put = function(input, destpath, cb){
+  this._put(input, destpath, cb);
+}
+
+FTP.prototype.temp_put = function(input, cb) {
+  this._put(input, null, cb);
 };
 
 FTP.prototype.append = function(input, destpath, cb) {
