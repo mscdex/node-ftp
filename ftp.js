@@ -403,7 +403,9 @@ FTP.prototype.list = function(path, streaming, cb) {
   }
 
   var self = this,
-      emitter = new EventEmitter();
+      emitter = new EventEmitter(),
+      successEarned = false,
+      endEarned = false;
   this._pasvGetLines(emitter, 'LIST', function(e) {
     if (e)
       return cb(e);
@@ -425,8 +427,19 @@ FTP.prototype.list = function(path, streaming, cb) {
         emitter.on('raw', function(line) {
           entries.push(line);
         });
+        emitter.on('end',function(){
+            if(successEarned){
+                cb(undefined,entries)
+            } else {
+                endEarned = true;
+            }
+        });
         emitter.on('success', function() {
-          cb(undefined, entries);
+            if(endEarned){
+                cb(undefined, entries);
+            }  else {
+               successEarned = true;
+            }
         });
         emitter.on('error', function(err) {
           cb(err);
