@@ -135,7 +135,7 @@ FTP.prototype.connect = function(options) {
   this._socket.on('data', function(chunk) {
     self._buffer += chunk;
     var m;
-    if (m = reResEnd.exec(self._buffer))
+    if (m = reResEnd.exec(self._buffer)) {
       var code, retval, reRmLeadCode;
       // we have a terminating response line
       code = parseInt(m[1], 10);
