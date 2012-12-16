@@ -75,6 +75,8 @@ inherits(FTP, EventEmitter);
 
 FTP.prototype.connect = function(options) {
   var self = this;
+  if (typeof options !== 'object')
+    options = {};
   this.connected = false;
   this.options.host = options.host || 'localhost';
   this.options.port = options.port || 21;
