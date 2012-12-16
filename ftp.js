@@ -1,459 +1,386 @@
-var util = require('util'),
-    net = require('net'),
+var Socket = require('net').Socket,
     EventEmitter = require('events').EventEmitter,
+    inherits = require('util').inherits,
     XRegExp = require('./xregexp');
 
 var reXListUnix = XRegExp.cache('^(?<type>[\\-ld])(?<permission>([\\-r][\\-w][\\-xs]){3})\\s+(?<inodes>\\d+)\\s+(?<owner>\\w+)\\s+(?<group>\\w+)\\s+(?<size>\\d+)\\s+(?<timestamp>((?<month1>\\w{3})\\s+(?<date1>\\d{1,2})\\s+(?<hour>\\d{1,2}):(?<minute>\\d{2}))|((?<month2>\\w{3})\\s+(?<date2>\\d{1,2})\\s+(?<year>\\d{4})))\\s+(?<name>.+)$'),
     reXListMSDOS = XRegExp.cache('^(?<month>\\d{2})(?:\\-|\\/)(?<date>\\d{2})(?:\\-|\\/)(?<year>\\d{2,4})\\s+(?<hour>\\d{2}):(?<minute>\\d{2})\\s{0,1}(?<ampm>[AaMmPp]{1,2})\\s+(?:(?<size>\\d+)|(?<isdir>\\<DIR\\>))\\s+(?<name>.+)$'),
     reXTimeval = XRegExp.cache('^(?<year>\\d{4})(?<month>\\d{2})(?<date>\\d{2})(?<hour>\\d{2})(?<minute>\\d{2})(?<second>\\d+)$'),
-    reKV = /(.+?)=(.+?);/;
+    rePASV = /([\d]+),([\d]+),([\d]+),([\d]+),([-\d]+),([-\d]+)/,
+    reEOL = /\r?\n/g,
+    reResEnd = /(?:^|\r?\n)(\d{3}) [^\r\n]*\r?\n$/;/*,
+    reRmLeadCode = /(^|\r?\n)\d{3}(?: |\-)/g;*/
 
 var MONTHS = {
-  jan: 1,
-  feb: 2,
-  mar: 3,
-  apr: 4,
-  may: 5,
-  jun: 6,
-  jul: 7,
-  aug: 8,
-  sep: 9,
-  oct: 10,
-  nov: 11,
-  dec: 12
-};
+      jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+      jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12
+    },
+    TYPE = {
+      SYNTAX: 0,
+      INFO: 1,
+      SOCKETS: 2,
+      AUTH: 3,
+      UNSPEC: 4,
+      FILESYS: 5
+    },
+    RETVAL = {
+      PRELIM: 1,
+      OK: 2,
+      WAITING: 3,
+      ERR_TEMP: 4,
+      ERR_PERM: 5
+    },
+    ERRORS = {
+      421: 'Service not available, closing control connection',
+      425: 'Can\'t open data connection',
+      426: 'Connection closed; transfer aborted',
+      450: 'Requested file action not taken / File unavailable (e.g., file busy)',
+      451: 'Requested action aborted: local error in processing',
+      452: 'Requested action not taken / Insufficient storage space in system',
+      500: 'Syntax error / Command unrecognized',
+      501: 'Syntax error in parameters or arguments',
+      502: 'Command not implemented',
+      503: 'Bad sequence of commands',
+      504: 'Command not implemented for that parameter',
+      530: 'Not logged in',
+      532: 'Need account for storing files',
+      550: 'Requested action not taken / File unavailable (e.g., file not found, no access)',
+      551: 'Requested action aborted: page type unknown',
+      552: 'Requested file action aborted / Exceeded storage allocation (for current directory or dataset)',
+      553: 'Requested action not taken / File name not allowed'
+    },
+    bytesCRLF = new Buffer([13, 10]);
 
 var FTP = module.exports = function(options) {
   this._socket = undefined;
-  this._dataSock = undefined;
-  this._state = undefined;
-  this._pasvPort = undefined;
-  this._pasvIP = undefined;
+  this._pasvSock = undefined;
   this._feat = undefined;
+  this._curReq = undefined;
   this._queue = [];
-  this.debug = false;
+  this._buffer = '';
+  this._debug = undefined;
   this.options = {
-    host: 'localhost',
-    port: 21,
-    /*secure: false,*/
-    connTimeout: 15000, // in ms
-    debug: false
+    host: undefined,
+    port: undefined,
+    user: undefined,
+    password: undefined,
+    secure: false,
+    connTimeout: undefined,
+    pasvTimeout: undefined,
+    keepalive: undefined
   };
-  extend(true, this.options, options);
-  if (typeof this.options.debug === 'function')
-    this.debug = this.options.debug;
+  this.connected = false;
 };
-util.inherits(FTP, EventEmitter);
+inherits(FTP, EventEmitter);
 
-FTP.prototype.connect = function(port, host) {
-  var self = this,
-      socket = this._socket,
-      curData = '';
-  if (typeof port === 'string')
-    this.options.host = port;
-  else if (typeof port === 'number')
-    this.options.port = port;
-  if (host !== undefined)
-    this.options.host = host;
+FTP.prototype.connect = function(options) {
+  var self = this;
+  this.connected = false;
+  this.options.host = options.host || 'localhost';
+  this.options.port = options.port || 21;
+  this.options.user = options.user || 'anonymous';
+  this.options.password = options.password || 'anonymous@';
+  this.options.secure = options.secure || false;
+  this.options.connTimeout = options.connTimeout || 10000;
+  this.options.pasvTimeout = options.pasvTimeout || 10000;
+  this.options.keepalive = options.keepalive || 10000;
+  if (typeof options.debug === 'function')
+    this._debug = options.debug;
 
-  host = this.options.host;
-  port = this.options.port;
+  this._socket = new Socket();
 
-  this._feat = {};
+  this._socket.setTimeout(0);
 
-  if (socket)
-    socket.end();
-  if (this._dataSock)
-    this._dataSock.end();
-
-  var connTimeout = setTimeout(function() {
-    self._socket.destroy();
-    self._socket = undefined;
-    self.emit('timeout');
-  }, this.options.connTimeout);
-  socket = this._socket = new net.Socket();
-  socket.setEncoding('binary');
-  socket.setTimeout(0);
-  socket.on('connect', function() {
-    clearTimeout(connTimeout);
-    self.debug&&self.debug('Connected');
-  });
-  socket.on('end', function() {
-    self.debug&&self.debug('Disconnected');
-    if (self._dataSocket)
-      self._dataSocket.end();
-    self.emit('end');
-  });
-  socket.on('close', function(hasError) {
-    clearTimeout(connTimeout);
-    if (self._dataSocket)
-      self._dataSocket.end();
-    self.emit('close', hasError);
-  });
-  socket.on('error', function(err) {
-    self.emit('error', err);
-  });
-  socket.on('data', function(data) {
-    curData += data;
-    if (/(?:\r\n|\n)$/.test(curData)) {
-      var resps = parseResponses(curData.split(/\r\n|\n/)), processNext = false;
-      if (resps.length === 0)
-        return;
-      curData = '';
-      if (self.debug) {
-        for (var i=0,len=resps.length; i<len; ++i) {
-          self.debug('Response: code = ' + resps[i][0]
-                     + (resps[i][1] ? '; text = ' + util.inspect(resps[i][1])
-                                    : ''));
+  this._socket.once('connect', function() {
+    self.connected = true;
+    var cmd;
+    self._curReq = {
+      cmd: '',
+      cb: function reentry(err, text, code) {
+        // not all servers are required to support FEAT (RFC 2389)
+        if (err && cmd !== 'FEAT') {
+          self.emit('error', err);
+          return self._socket.end();
         }
+
+        if (!cmd) {
+          // sometimes the initial greeting can contain useful information
+          // about authorized use, other limits, etc.
+          self.emit('greeting', text);
+
+          cmd = 'USER';
+          self._send('USER ' + self.options.user, reentry);
+        } else if (cmd === 'USER') {
+          if (code === 331 && !self.options.password) {
+            self.emit('error', makeError('Password required', code));
+            return self._socket.end();
+          }
+          cmd = 'PASS';
+          self._send('PASS ' + self.options.password, reentry);
+        } else if (cmd === 'PASS') {
+          cmd = 'FEAT';
+          self._send(cmd, reentry);
+        } else if (cmd === 'FEAT') {
+          if (!err)
+            self._parseFeat(text);
+          cmd = 'TYPE';
+          self._send('TYPE I', reentry);
+        } else if (cmd === 'TYPE')
+          self.emit('ready');
       }
+    };
+  });
 
-      for (var i=0,code,text,group,len=resps.length; i<len; ++i) {
-        code = resps[i][0];
-        text = resps[i][1];
-        group = getGroup(code); // second digit
+  this._socket.setEncoding('binary');
+  this._socket.on('data', function(chunk) {
+    self._buffer += chunk;
+    var m;
+    if (m = reResEnd.exec(self._buffer))
+      var code, retval, reRmLeadCode;
+      // we have a terminating response line
+      code = parseInt(m[1], 10);
+      reEOL.lastIndex = 0;
+      //var isML = (reEOL.test(self._buffer) && reEOL.test(self._buffer));
+      reEOL.lastIndex = 0;
+      retval = code / 100 >> 0;
 
-        if (!self._state) {
-          if (code === 220) {
-            self._state = 'connected';
-            self.send('FEAT', function(e, text) {
-              if (!e && /\r\n|\n/.test(text)) {
-                var feats = text.split(/\r\n|\n/);
-                feats.shift(); // "Features:"
-                feats.pop(); // "End"
-                for (var i=0,sp,len=feats.length; i<len; ++i) {
-                  feats[i] = feats[i].trim();
-                  if ((sp = feats[i].indexOf(' ')) > -1)
-                    self._feat[feats[i].substring(0, sp).toUpperCase()] = feats[i].substring(sp+1);
-                  else
-                    self._feat[feats[i].toUpperCase()] = true;
-                }
-                self.debug&&self.debug('Features: ' + util.inspect(self._feat));
-              }
-              self.emit('connect');
-            });
-          } else
-            self.emit('error', new Error('Did not receive service ready response'));
-          return;
-        }
+      // RFC 959 does not require each line in a multi-line response to begin
+      // with '<code>-', but many servers will do this.
+      //
+      // remove this leading '<code>-' (or '<code> ' from last line) from each
+      // line in the response ...
+      reRmLeadCode = '(^|\\r?\\n)';
+      reRmLeadCode += m[1];
+      reRmLeadCode += '(?: |\\-)';
+      reRmLeadCode = RegExp(reRmLeadCode, 'g');
+      self._buffer = self._buffer.replace(reRmLeadCode, '$1').trim();
 
-        if (code >= 200 && !processNext)
-          processNext = true;
-        else if (code < 200)
-          continue;
+      if (retval === RETVAL.ERR_TEMP || retval === RETVAL.ERR_PERM)
+        self._curReq.cb(makeError(self._buffer, code));
+      else
+        self._curReq.cb(undefined, self._buffer, code);
+      self._buffer = '';
 
-        if (group === 0) {
-          // all in here are errors except 200
-          if (code === 200)
-            self._callCb();
-          else
-            self._callCb(makeError(code, text));
-        } else if (group === 1) {
-          // informational group
-          if (code >= 211 && code <= 215)
-            self._callCb(text);
-          else
-            self._callCb(makeError(code, text));
-        } else if (group === 2) {
-          // control/data connection-related
-          if (code === 226) {
-            // closing data connection, file action request successful
-            self._callCb();
-          } else if (code === 227) {
-            // server entering passive mode
-            var parsed = text.match(/([\d]+),([\d]+),([\d]+),([\d]+),([-\d]+),([-\d]+)/);
-            if (!parsed)
-              throw new Error('Could not parse passive mode response: ' + text);
-            self._pasvIP = parsed[1] + '.' + parsed[2] + '.' + parsed[3] + '.'
-                          + parsed[4];
-            self._pasvPort = (parseInt(parsed[5], 10) * 256)
-                             + parseInt(parsed[6], 10);
-            self._pasvConnect();
-            return;
-          } else
-            self._callCb(makeError(code, text));
-        } else if (group === 3) {
-          // authentication-related
-          if (code === 331 || code === 230)
-            self._callCb((code === 331));
-          else
-            self._callCb(makeError(code, text));
-        } else if (group === 5) { // group 4 is unused
-          // server file system state
-          if (code === 250 && self._queue[0][0] === 'MLST')
-            self._callCb(text);
-          else if (code === 250 || code === 350)
-            self._callCb();
-          else if (code === 257) {
-            var path = text.match(/(?:^|\s)\"(.*)\"(?:$|\s)/);
-            if (path)
-              path = path[1].replace(/\"\"/g, '"');
-            else
-              path = text;
-            self._callCb(path);
-          } else
-            self._callCb(makeError(code, text));
-        }
+      // a hack to signal we're waiting for a PASV data connection to complete
+      // first before executing any more queued requests ...
+      //
+      // also: don't forget our current request if we're expecting another
+      // terminating response ....
+      if (self._curReq && retval !== RETVAL.PRELIM) {
+        self._curReq = undefined;
+        self._send();
       }
-      if (processNext)
-        self.send();
     }
   });
-  socket.connect(port, host);
+
+  this._socket.once('error', function(err) {
+    self.emit('error', err);
+  });
+
+  var hasReset = false;
+  this._socket.once('end', function() {
+    self.connected = false;
+    self._reset();
+    hasReset = true;
+    self.emit('end');
+  });
+
+  this._socket.once('close', function(had_err) {
+    self.connected = false;
+    if (!hasReset)
+      self._reset();
+    self.emit('close', had_err);
+  });
+
+  this._socket.connect(this.options.port, this.options.host);
 };
 
 FTP.prototype.end = function() {
-  if (this._socket)
+  if (this._socket && this._socket.writable)
     this._socket.end();
-  if (this._dataSock)
-    this._dataSock.end();
+  if (this._pasvSock && this._pasvSock.writable)
+    this._pasvSock.end();
 
   this._socket = undefined;
-  this._dataSock = undefined;
+  this._pasvSock = undefined;
 };
 
-/* Standard features */
-
-FTP.prototype.auth = function(user, password, callback) {
-  if (this._state !== 'connected')
-    return false;
-  if (typeof user === 'function') {
-    callback = user;
-    user = 'anonymous';
-    password = 'anonymous@';
-  } else if (typeof password === 'function') {
-    callback = password;
-    password = 'anonymous@';
+// "Standard" (RFC 959) commands
+FTP.prototype.abort = function(immediate, cb) {
+  if (typeof immediate === 'function') {
+    cb = immediate;
+    immediate = true;
   }
-
-  var cmds = [['USER', user], ['PASS', password]], cur = 0, self = this,
-      cb = function(err, result) {
-        if (err) {
-          callback(err);
-          return;
-        }
-        if (result === true) {
-          if (!self.send(cmds[cur][0], cmds[cur][1], cb))
-            return callback(new Error('Connection severed'));
-          ++cur;
-        } else if (result === false) {
-          // logged in
-          cur = 0;
-          self._state = 'authorized';
-          if (!self.send('TYPE', 'I', callback))
-            return callback(new Error('Connection severed'));
-        }
-      };
-  cb(undefined, true);
-  return true;
-};
-
-FTP.prototype.pwd = function(cb) {
-  if (this._state !== 'authorized')
-    return false;
-  return this.send('PWD', cb);
+  if (immediate)
+    this._send('ABOR', cb, true);
+  else
+    this._send('ABOR', cb);
 };
 
 FTP.prototype.cwd = function(path, cb) {
-  if (this._state !== 'authorized')
-    return false;
-  return this.send('CWD', path, cb);
-};
-
-FTP.prototype.cdup = function(cb) {
-  if (this._state !== 'authorized')
-    return false;
-  return this.send('CDUP', cb);
-};
-
-FTP.prototype.get = function(path, cb) {
-  if (this._state !== 'authorized')
-    return false;
-
-  var self = this;
-  return this.send('PASV', function(e, stream) {
-    if (e)
-      return cb(e);
-
-    stream._decoder = undefined;
-    var r = self.send('RETR', path, function(e) {
-              if (e)
-                return stream.emit('error', e);
-              stream.emit('success');
-            });
-    if (r)
-      cb(undefined, stream);
-    else
-      cb(new Error('Connection severed'));
-  });
-};
-
-FTP.prototype.put = function(input, destpath, cb) {
-  var isBuffer = Buffer.isBuffer(input);
-  if (this._state !== 'authorized' || (!isBuffer && !input.readable))
-    return false;
-
-  if (!isBuffer)
-    input.pause();
-
-  var self = this;
-  return this.send('PASV', function(e, outstream) {
-    if (e)
-      return cb(e);
-
-    outstream._decoder = undefined;
-    var r = self.send('STOR', destpath, cb);
-    if (r) {
-      if (!isBuffer) {
-        input.pipe(outstream);
-        input.resume();
-      } else
-        outstream.end(input);
-    } else
-      cb(new Error('Connection severed'));
-  });
-};
-
-FTP.prototype.append = function(input, destpath, cb) {
-  var isBuffer = Buffer.isBuffer(input);
-  if (this._state !== 'authorized' || (!isBuffer && !input.readable))
-    return false;
-
-  if (!isBuffer)
-    input.pause();
-
-  var self = this;
-  return this.send('PASV', function(e, outstream) {
-    if (e)
-      return cb(e);
-
-    var r = self.send('APPE', destpath, cb);
-    if (r) {
-      if (!isBuffer) {
-        input.resume();
-        input.pipe(outstream);
-      } else
-        outstream.end(input);
-    }
-    else
-      cb(new Error('Connection severed'));
-  });
-};
-
-FTP.prototype.mkdir = function(path, cb) {
-  if (this._state !== 'authorized')
-    return false;
-  return this.send('MKD', path, cb);
-};
-
-FTP.prototype.rmdir = function(path, cb) {
-  if (this._state !== 'authorized')
-    return false;
-  return this.send('RMD', path, cb);
+  this._send('CWD ' + path, cb);
 };
 
 FTP.prototype.delete = function(path, cb) {
-  if (this._state !== 'authorized')
-    return false;
-  return this.send('DELE', path, cb);
-};
-
-FTP.prototype.rename = function(pathFrom, pathTo, cb) {
-  if (this._state !== 'authorized')
-    return false;
-
-  var self = this;
-  return this.send('RNFR', pathFrom, function(e) {
-    if (e)
-      return cb(e);
-
-    if (!self.send('RNTO', pathTo, cb))
-      cb(new Error('Connection severed'));
-  });
-};
-
-FTP.prototype.system = function(cb) {
-  if (this._state !== 'authorized')
-    return false;
-  return this.send('SYST', cb);
+  this._send('DELE' + path, cb);
 };
 
 FTP.prototype.status = function(cb) {
-  if (this._state !== 'authorized')
-    return false;
-  return this.send('STAT', cb);
+  this._send('STAT', cb);
 };
 
-FTP.prototype.list = function(path, streaming, cb) {
-  if (this._state !== 'authorized')
-    return false;
+FTP.prototype.rename = function(from, to, cb) {
+  var self = this;
+  this._send('RNFR' + from, function(err) {
+    if (err)
+      return cb(err);
+
+    self._send('RNTO ' + to, cb);
+  });
+};
+
+FTP.prototype.list = function(path, cb) {
+  var self = this, cmd;
 
   if (typeof path === 'function') {
     cb = path;
     path = undefined;
-    streaming = false;
-  } else if (typeof path === 'boolean') {
-    cb = streaming;
-    streaming = path;
-    path = undefined;
-  }
-  if (typeof streaming === 'function') {
-    cb = streaming;
-    streaming = false;
-  }
+    cmd = 'LIST';
+  } else
+    cmd = 'LIST ' + path;
 
-  var self = this,
-      emitter = new EventEmitter();
-  this._pasvGetLines(emitter, 'LIST', function(e) {
-    if (e)
-      return cb(e);
-    var cbTemp = function(e) {
-          if (e)
-            return emitter.emit('error', e);
-          emitter.emit('success');
-        }, r;
-    if (path)
-      r = self.send('LIST', path, cbTemp);
-    else
-      r = self.send('LIST', cbTemp);
-    if (r) {
-      if (!streaming) {
-        var entries = [];
-        emitter.on('entry', function(entry) {
-          entries.push(entry);
-        });
-        emitter.on('raw', function(line) {
-          entries.push(line);
-        });
-        emitter.on('success', function() {
-          cb(undefined, entries);
-        });
-        emitter.on('error', function(err) {
-          cb(err);
-        });
-      } else
-        cb(undefined, emitter);
-    } else
-      cb(new Error('Connection severed'));
+  this._pasv(function(err, sock) {
+    if (err)
+      return cb(err);
+
+    if (self._queue[0].cmd === 'ABOR')
+      return cb();
+
+    var sockerr, done = false, entries, buffer = '';
+
+    sock.setEncoding('binary');
+    sock.on('data', function(chunk) {
+      buffer += chunk;
+    });
+    sock.once('error', function(err) {
+      if (!sock.aborting)
+        sockerr = err;
+    });
+    sock.once('end', ondone);
+    sock.once('close', ondone);
+
+    function ondone() {
+      if (!done) {
+        done = true;
+        if (sockerr)
+          return cb(new Error('Unexpected data connection error: ' + sockerr));
+        if (sock.aborting)
+          return cb();
+
+        // process received data
+        entries = buffer.split(reEOL);
+        for (var i = 0, len = entries.length; i < len; ++i)
+          entries[i] = parseListEntry(entries[i]);
+      }
+    }
+
+    // this callback will be executed multiple times, the first is when server
+    // replies with 150, then a final reply after the data connection closes
+    // to indicate whether the transfer was actually a success or not
+    self._send(cmd, function(err, text, code) {
+      if (err)
+        return cb(err);
+      if (code !== 150)
+        cb(undefined, entries);
+    });
   });
 };
 
-/* Extended features */
+FTP.prototype.get = function(path, cb) {
+  var self = this;
+  this._pasv(function(err, sock) {
+    if (err)
+      return cb(err);
 
+    if (self._queue[0].cmd === 'ABOR')
+      return cb();
+
+    // modify behavior of socket events so that we can emit 'error' once for
+    // either a TCP-level error OR an FTP-level error response that we get when
+    // the socket is closed (e.g. the server ran out of space).
+    var sockerr, started = false;
+    sock._emit = sock.emit;
+    sock.emit = function(ev, arg1) {
+      if (ev === 'error') {
+        sockerr = err;
+        return;
+      } else if (ev === 'end' || ev === 'close')
+        return;
+      sock._emit.apply(this, Array.prototype.slice.call(arguments));
+    };
+
+    // this callback will be executed multiple times, the first is when server
+    // replies with 150, then a final reply after the data connection closes
+    // to indicate whether the transfer was actually a success or not
+    self._send('RETR ' + path, function(err, text, code) {
+      if (sockerr || err) {
+        if (!started)
+          cb(sockerr || err);
+        else {
+          sock._emit('error', sockerr || err);
+          sock._emit('close', true);
+        }
+        return;
+      }
+      if (code === 150) {
+        started = true;
+        cb(undefined, sock);
+      } else {
+        sock._emit('end');
+        sock._emit('close');
+      }
+    });
+  });
+};
+
+FTP.prototype.put = function(input, path, cb) {
+  this._store('STOR ' + path, input, cb);
+};
+
+FTP.prototype.append = function(input, path, cb) {
+  this._store('APPE ' + path, input, cb);
+};
+
+FTP.prototype.pwd = function(cb) { // PWD is optional
+  this._send('PWD', cb);
+};
+
+FTP.prototype.cdup = function(cb) { // CDUP is optional
+  this._send('CDUP', cb);
+};
+
+FTP.prototype.mkdir = function(path, cb) { // MKD is optional
+  this._send('MKD' + path, cb);
+};
+
+FTP.prototype.rmdir = function(path, cb) { // RMD is optional
+  this._send('RMD' + path, cb);
+};
+
+FTP.prototype.system = function(cb) { // SYST is optional
+  this._send('SYST', cb);
+};
+
+// "Extended" (RFC 3659) commands
 FTP.prototype.size = function(path, cb) {
-  if (this._state !== 'authorized' || !this._feat.SIZE)
-    return false;
-  return this.send('SIZE', path, cb);
+  this._send('SIZE ' + path, cb);
 };
 
 FTP.prototype.lastMod = function(path, cb) {
-  if (this._state !== 'authorized' || !this._feat.MDTM)
-    return false;
-  return this.send('MDTM', path, function(e, text) {
-    if (e)
-      return cb(e);
-    var val = reXTimeval.exec(text),
-        ret;
+  this._send('MDTM ' + path, function(err, text, code) {
+    if (err)
+      return cb(err);
+    var val = reXTimeval.exec(text), ret;
     if (!val)
       return cb(new Error('Invalid date/time format from server'));
     // seconds can be a float, we'll just truncate this because Date doesn't
@@ -466,194 +393,184 @@ FTP.prototype.lastMod = function(path, cb) {
 };
 
 FTP.prototype.restart = function(offset, cb) {
-  if (this._state !== 'authorized' || !this._feat.REST
-      || !(/STREAM/i.test(this._feat.REST)))
-    return false;
-  return this.send('REST', offset, cb);
+  this._send('REST ' + offset, cb);
 };
 
-/* Internal helper methods */
 
-FTP.prototype.send = function(cmd, params, cb) {
-  if (!this._socket || !this._socket.writable)
-    return false;
 
-  if (cmd) {
-    cmd = (''+cmd).toUpperCase();
-    if (typeof params === 'function') {
-      cb = params;
-      params = undefined;
+// Private/Internal methods
+FTP.prototype._parseFeat = function(text) {
+  var lines = text.split(reEOL);
+  lines.shift(); // initial response line
+  lines.pop(); // final response line
+
+  for (var i = 0, len = lines.length; i < len; ++i)
+    lines[i] = lines[i].trim();
+
+  // just store the raw lines for now
+  this._feat = lines;
+};
+
+FTP.prototype._pasv = function(cb) {
+  var self = this, first = true, ip, port;
+  this._send('PASV', function reentry(err, text) {
+    if (err)
+      return cb(err);
+
+    self._curReq = undefined;
+
+    if (first) {
+      var m = rePASV.exec(text);
+      if (!m)
+        return cb(new Error('Unable to parse PASV server response'));
+      ip = m[1];
+      ip += '.';
+      ip += m[2];
+      ip += '.';
+      ip += m[3];
+      ip += '.';
+      ip += m[4];
+      port = (parseInt(m[5], 10) * 256) + parseInt(m[6], 10);
+
+      first = false;
     }
-    if (!params)
-      this._queue.push([cmd, cb]);
-    else
-      this._queue.push([cmd, params, cb]);
-  }
-  if (this._queue.length) {
-    var fullcmd = this._queue[0][0]
-                  + (this._queue[0].length === 3 ? ' ' + this._queue[0][1] : '');
-    this.debug&&this.debug('> ' + fullcmd);
-    this._socket.write(fullcmd + '\r\n');
-  }
-
-  return true;
-};
-
-FTP.prototype._pasvGetLines = function(emitter, type, cb) {
-  var self = this;
-  return this.send('PASV', function(e, stream) {
-    if (e)
-      return cb(e);
-    var curData = '', lines;
-    stream.setEncoding('binary');
-    stream.on('data', function(data) {
-      curData += data;
-      if (/\r\n|\n/.test(curData)) {
-        if (curData[curData.length-1] === '\n') {
-          lines = curData.split(/\r\n|\n/);
-          curData = '';
-        } else {
-          var pos = curData.lastIndexOf('\r\n');
-          if (pos === -1)
-            pos = curData.lastIndexOf('\n');
-          lines = curData.substring(0, pos).split(/\r\n|\n/);
-          curData = curData.substring(pos+1);
+    self._pasvConnect(ip, port, function(err, sock) {
+      if (err) {
+        // try the IP of the main connection if the server was somehow
+        // misconfigured and gave for example a LAN IP instead of WAN IP over
+        // the Internet
+        if (ip !== self._socket.remoteAddress) {
+          ip = self._socket.remoteAddress;
+          return reentry();
         }
-        processDirLines(lines, emitter, type, self.debug);
+        // automatically abort PASV mode
+        self._send('ABOR', function() {
+          cb(err);
+          self._send();
+        }, true);
       }
+      cb(undefined, sock);
+      self._send();
     });
-    stream.on('end', function() {
-      emitter.emit('end');
-    });
-    stream.on('error', function(e) {
-      emitter.emit('error', e);
-    });
-    cb();
   });
 };
 
-FTP.prototype._pasvConnect = function() {
-  if (!this._pasvPort)
-    return false;
+FTP.prototype._pasvConnect = function(ip, port, cb) {
+  var self = this,
+      socket = new Socket(),
+      sockerr,
+      timer = setTimeout(function() {
+        socket.destroy();
+        cb(new Error('Timed out while making data connection'));
+      }, this.options.pasvTimeout);
+
+  socket.setTimeout(0);
+
+  socket.once('connect', function() {
+    clearTimeout(timer);
+    self._pasvSocket = socket;
+    cb(undefined, socket);
+  });
+  socket.once('error', function(err) {
+    sockerr = err;
+  });
+  socket.once('end', function() {
+    clearTimeout(timer);
+    self._pasvSocket = undefined;
+  });
+  socket.once('close', function(had_err) {
+    clearTimeout(timer);
+    if (!self._pasvSocket) {
+      var errmsg = 'Unable to make data connection';
+      if (sockerr) {
+        errmsg += ': ' + sockerr;
+        sockerr = undefined;
+      }
+      cb(new Error(errmsg));
+    }
+    self._pasvSocket = undefined;
+  });
+};
+
+FTP.prototype._store = function(cmd, input, cb) {
+  var isBuffer = Buffer.isBuffer(input);
+
+  if (!isBuffer)
+    input.pause();
 
   var self = this;
+  this._pasv(function(err, sock) {
+    if (err)
+      return cb(err);
 
-  this.debug&&this.debug('(PASV) About to attempt data connection to: '
-                         + this._pasvIP + ':' + this._pasvPort);
+    if (self._queue[0].cmd === 'ABOR')
+      return cb();
 
-    var s = this._dataSock = new net.Socket();
-    s.on('connect', function() {
-      clearTimeout(s._pasvTimeout);
-      self.debug&&self.debug('(PASV) Data connection successful');
-      self._callCb(s);
+    var sockerr;
+    sock.once('error', function(err) {
+      sockerr = err;
     });
-    s.on('end', function() {
-      self.debug&&self.debug('(PASV) Data connection closed');
-    });
-    s.on('close', function(had_err) {
-      clearTimeout(self._pasvTimeout);
-      self._pasvPort = self._pasvIP = undefined;
-      self._dataSock = undefined;
-    });
-    s.on('error', function(err) {
-      self.debug&&self.debug('(PASV) Error: ' + err);
-      self._callCb(err);
-    });
-    s._pasvTimeout = setTimeout(function() {
-      var r = self.send('ABOR', function(e) {
-        s.destroy();
-        if (e)
-          return self._callCb(e);
-        self._callCb(new Error('(PASV) Data connection timed out while connecting'));
-      });
-      if (!r)
-        self._callCb(new Error('Connection severed'));
-    }, this.options.connTimeout);
 
-  s.connect(this._pasvPort, this._pasvIP);
+    // this callback will be executed multiple times, the first is when server
+    // replies with 150, then a final reply after the data connection closes
+    // to indicate whether the transfer was actually a success or not
+    self._send(cmd, function(err, text, code) {
+      if (sockerr || err)
+        return cb(sockerr || err);
 
-  return true;
-};
-
-FTP.prototype._callCb = function(result) {
-  if (!this._queue.length)
-    return;
-
-  var req = this._queue.shift(), cb = (req.length === 3 ? req[2] : req[1]);
-  if (!cb)
-    return;
-
-  if (result instanceof Error)
-    process.nextTick(function() { cb(result); });
-  else if (typeof result !== 'undefined')
-    process.nextTick(function() { cb(undefined, result); });
-  else
-    process.nextTick(cb);
-};
-
-
-/******************************************************************************/
-/***************************** Utility functions ******************************/
-/******************************************************************************/
-function processDirLines(lines, emitter, type, debug) {
-  for (var i=0,result,len=lines.length; i<len; ++i) {
-    if (lines[i].length) {
-      debug&&debug('(PASV) Got ' + type + ' line: ' + lines[i]);
-      if (type === 'LIST')
-        result = parseList(lines[i]);
-      else if (type === 'MLSD')
-        result = parseMList(lines[i]);
-      emitter.emit((typeof result === 'string' ? 'raw' : 'entry'), result);
-    }
-  }
-}
-
-function parseResponses(lines) {
-  var resps = [],
-      multiline = '';
-  for (var i=0,match,len=lines.length; i<len; ++i) {
-    if (match = lines[i].match(/^(\d{3})(?:$|(\s|\-)(.*))/)) {
-      if (match[2] === '-') {
-        if (match[3])
-          multiline += match[3] + '\n';
-        continue;
+      if (code === 150) {
+        if (isBuffer)
+          sock.end(input);
+        else {
+          input.pipe(sock);
+          input.resume();
+        }
       } else
-        match[3] = (match[3] ? multiline + match[3] : multiline);
-      if (match[3].length)
-        resps.push([parseInt(match[1], 10), match[3]]);
-      else
-        resps.push([parseInt(match[1], 10)]);
-      multiline = '';
-    } else
-      multiline += lines[i] + '\n';
+        cb();
+    });
+  });
+};
+
+FTP.prototype._send = function(cmd, cb, promote) {
+  if (cmd !== undefined) {
+    if (promote)
+      this._queue.unshift({ cmd: cmd, cb: cb });
+    else
+      this._queue.push({ cmd: cmd, cb: cb });
   }
-  return resps;
-}
+  if (!this._curReq && this._queue.length) {
+    this._curReq = this._queue.shift();
+    if (this._curReq.cmd === 'ABOR' && this._pasvSocket)
+      this._pasvSocket.aborting = true;
+    this._socket.write(this._curReq.cmd);
+    this._socket.write(bytesCRLF);
+  }
+};
 
-function parseMList(line) {
-  var ret, result = line.trim().split(reKV);
-  if (result && result.length > 0) {
-    ret = {};
-    if (result.length === 1)
-      ret.name = result[0].trim();
-    else {
-      var i = 1;
-      for (var k,v,len=result.length; i<len; i+=3) {
-        k = result[i];
-        v = result[i+1];
-        ret[k] = v;
-      }
-      ret.name = result[result.length-1].trim();
-    }
-  } else
-    ret = line;
-  return ret;
-}
+FTP.prototype._reset = function() {
+  if (this._socket && this._socket.writable)
+    this._socket.end();
+  if (this._socket && this._socket.connTimer)
+    clearTimeout(this._socket.connTimer);
+  if (this._socket && this._socket.keepalive)
+    clearInterval(this._socket.keepalive);
+  this._socket = undefined;
+  this._pasvSock = undefined;
+  this._feat = undefined;
+  this._curReq = undefined;
+  this._queue = [];
+  this._buffer = '';
+  this.options.host = this.options.port = this.options.user
+                    = this.options.password = this.options.secure
+                    = this.options.connTimeout = this.options.pasvTimeout
+                    = this.options.keepalive = this._debug = undefined;
+  this.connected = false;
+};
 
-function parseList(line) {
+// Utility functions
+function parseListEntry(line) {
   var ret,
       info,
-      thisYear = (new Date()).getFullYear(),
       month,
       day,
       year,
@@ -663,6 +580,8 @@ function parseList(line) {
   if (ret = reXListUnix.exec(line)) {
     info = {
       type: ret.type,
+      name: undefined,
+      target: undefined,
       rights: {
         user: ret.permission.substring(0, 3).replace('-', ''),
         group: ret.permission.substring(3, 6).replace('-', ''),
@@ -676,7 +595,7 @@ function parseList(line) {
     if (ret.month1 !== undefined) {
       month = parseInt(MONTHS[ret.month1.toLowerCase()], 10);
       day = parseInt(ret.date1, 10);
-      year = thisYear;
+      year = (new Date()).getFullYear();
       hour = parseInt(ret.hour, 10);
       mins = parseInt(ret.minute, 10);
       if (month < 10)
@@ -687,7 +606,8 @@ function parseList(line) {
         hour = '0' + hour;
       if (mins < 10)
         mins = '0' + mins;
-      info.date = new Date(year + '-' + month + '-' + day + 'T' + hour + ':' + mins);
+      info.date = new Date(year + '-' + month + '-' + day
+                           + 'T' + hour + ':' + mins);
     } else if (ret.month2 !== undefined) {
       month = parseInt(MONTHS[ret.month2.toLowerCase()], 10);
       day = parseInt(ret.date2, 10);
@@ -732,7 +652,8 @@ function parseList(line) {
     if (mins < 10)
       mins = '0' + mins;
 
-    info.date = new Date(year + '-' + month + '-' + day + 'T' + hour + ':' + mins);
+    info.date = new Date(year + '-' + month + '-' + day
+                         + 'T' + hour + ':' + mins);
     ret = info;
   } else
     ret = line; // could not parse, so at least give the end user a chance to
@@ -741,76 +662,8 @@ function parseList(line) {
   return ret;
 }
 
-function makeError(code, text) {
-  var err = new Error('Server Error: ' + code + (text ? ' ' + text : ''));
+function makeError(msg, code) {
+  var err = new Error(msg);
   err.code = code;
-  err.text = text;
   return err;
-}
-
-function getGroup(code) {
-  return parseInt(code / 10, 10) % 10;
-}
-
-/**
- * Adopted from jquery's extend method. Under the terms of MIT License.
- *
- * http://code.jquery.com/jquery-1.4.2.js
- *
- * Modified by Brian White to use Array.isArray instead of the custom isArray method
- */
-function extend() {
-  // copy reference to target object
-  var target = arguments[0] || {}, i = 1, length = arguments.length, deep = false, options, name, src, copy;
-  // Handle a deep copy situation
-  if (typeof target === "boolean") {
-    deep = target;
-    target = arguments[1] || {};
-    // skip the boolean and the target
-    i = 2;
-  }
-  // Handle case when target is a string or something (possible in deep copy)
-  if (typeof target !== "object" && typeof target !== 'function')
-    target = {};
-  var isPlainObject = function(obj) {
-    // Must be an Object.
-    // Because of IE, we also have to check the presence of the constructor property.
-    // Make sure that DOM nodes and window objects don't pass through, as well
-    if (!obj || toString.call(obj) !== "[object Object]" || obj.nodeType || obj.setInterval)
-      return false;
-    var has_own_constructor = hasOwnProperty.call(obj, "constructor");
-    var has_is_property_of_method = hasOwnProperty.call(obj.constructor.prototype, "isPrototypeOf");
-    // Not own constructor property must be Object
-    if (obj.constructor && !has_own_constructor && !has_is_property_of_method)
-      return false;
-    // Own properties are enumerated firstly, so to speed up,
-    // if last one is own, then all properties are own.
-    var last_key, key;
-    for (key in obj)
-      last_key = key;
-    return typeof last_key === "undefined" || hasOwnProperty.call(obj, last_key);
-  };
-  for (; i < length; i++) {
-    // Only deal with non-null/undefined values
-    if ((options = arguments[i]) !== null) {
-      // Extend the base object
-      for (name in options) {
-        src = target[name];
-        copy = options[name];
-        // Prevent never-ending loop
-        if (target === copy)
-            continue;
-        // Recurse if we're merging object literal values or arrays
-        if (deep && copy && (isPlainObject(copy) || Array.isArray(copy))) {
-          var clone = src && (isPlainObject(src) || Array.isArray(src)) ? src : Array.isArray(copy) ? [] : {};
-          // Never move original objects, clone them
-          target[name] = extend(deep, clone, copy);
-        // Don't bring in undefined values
-        } else if (typeof copy !== "undefined")
-          target[name] = copy;
-      }
-    }
-  }
-  // Return the modified object
-  return target;
 }
