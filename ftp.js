@@ -461,7 +461,9 @@ FTP.prototype._pasvConnect = function(ip, port, cb) {
   var self = this,
       socket = new Socket(),
       sockerr,
+      timedOut = false,
       timer = setTimeout(function() {
+        timedOut = true;
         socket.destroy();
         cb(new Error('Timed out while making data connection'));
       }, this.options.pasvTimeout);
@@ -478,11 +480,10 @@ FTP.prototype._pasvConnect = function(ip, port, cb) {
   });
   socket.once('end', function() {
     clearTimeout(timer);
-    self._pasvSocket = undefined;
   });
   socket.once('close', function(had_err) {
     clearTimeout(timer);
-    if (!self._pasvSocket) {
+    if (!self._pasvSocket && !timedOut) {
       var errmsg = 'Unable to make data connection';
       if (sockerr) {
         errmsg += ': ' + sockerr;
@@ -492,6 +493,8 @@ FTP.prototype._pasvConnect = function(ip, port, cb) {
     }
     self._pasvSocket = undefined;
   });
+
+  socket.connect(port, ip);
 };
 
 FTP.prototype._store = function(cmd, input, cb) {
