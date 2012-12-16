@@ -255,10 +255,10 @@ FTP.prototype.list = function(path, cb) {
     if (err)
       return cb(err);
 
-    if (self._queue[0].cmd === 'ABOR')
+    if (self._queue[0] && self._queue[0].cmd === 'ABOR')
       return cb();
 
-    var sockerr, done = false, entries, buffer = '';
+    var sockerr, done = false, lastreply = false, entries, buffer = '';
 
     sock.setEncoding('binary');
     sock.on('data', function(chunk) {
@@ -274,26 +274,32 @@ FTP.prototype.list = function(path, cb) {
     function ondone() {
       if (!done) {
         done = true;
-        if (sockerr)
-          return cb(new Error('Unexpected data connection error: ' + sockerr));
-        if (sock.aborting)
-          return cb();
+        if (lastreply) {
+          if (sockerr)
+            return cb(new Error('Unexpected data connection error: ' + sockerr));
+          if (sock.aborting)
+            return cb();
 
-        // process received data
-        entries = buffer.split(reEOL);
-        for (var i = 0, len = entries.length; i < len; ++i)
-          entries[i] = parseListEntry(entries[i]);
+          // process received data
+          entries = buffer.split(reEOL);
+          entries.pop(); // ending EOL
+          for (var i = 0, len = entries.length; i < len; ++i)
+            entries[i] = parseListEntry(entries[i]);
+          cb(undefined, entries);
+        }
       }
     }
 
     // this callback will be executed multiple times, the first is when server
-    // replies with 150, then a final reply after the data connection closes
-    // to indicate whether the transfer was actually a success or not
+    // replies with 150 and then a final reply to indicate whether the transfer
+    // was actually a success or not
     self._send(cmd, function(err, text, code) {
       if (err)
         return cb(err);
-      if (code !== 150)
-        cb(undefined, entries);
+      if (code !== 150) {
+        lastreply = true;
+        ondone();
+      }
     });
   });
 };
@@ -304,22 +310,36 @@ FTP.prototype.get = function(path, cb) {
     if (err)
       return cb(err);
 
-    if (self._queue[0].cmd === 'ABOR')
+    if (self._queue[0] && self._queue[0].cmd === 'ABOR')
       return cb();
 
     // modify behavior of socket events so that we can emit 'error' once for
     // either a TCP-level error OR an FTP-level error response that we get when
     // the socket is closed (e.g. the server ran out of space).
-    var sockerr, started = false;
+    var sockerr, started = false, lastreply = false, done = false;
     sock._emit = sock.emit;
     sock.emit = function(ev, arg1) {
       if (ev === 'error') {
         sockerr = err;
         return;
-      } else if (ev === 'end' || ev === 'close')
+      } else if (ev === 'end' || ev === 'close') {
+        if (!done) {
+          done = true;
+          ondone();
+        }
         return;
-      sock._emit.apply(this, Array.prototype.slice.call(arguments));
+      }
+      sock._emit.apply(sock, Array.prototype.slice.call(arguments));
     };
+
+    function ondone() {
+      if (done && lastreply) {
+        sock._emit('end');
+        sock._emit('close');
+      }
+    }
+
+    sock.pause();
 
     // this callback will be executed multiple times, the first is when server
     // replies with 150, then a final reply after the data connection closes
@@ -337,9 +357,10 @@ FTP.prototype.get = function(path, cb) {
       if (code === 150) {
         started = true;
         cb(undefined, sock);
+        sock.resume();
       } else {
-        sock._emit('end');
-        sock._emit('close');
+        lastreply = true;
+        ondone();
       }
     });
   });
@@ -445,11 +466,14 @@ FTP.prototype._pasv = function(cb) {
           ip = self._socket.remoteAddress;
           return reentry();
         }
+
         // automatically abort PASV mode
         self._send('ABOR', function() {
           cb(err);
           self._send();
         }, true);
+
+        return;
       }
       cb(undefined, sock);
       self._send();
@@ -508,7 +532,7 @@ FTP.prototype._store = function(cmd, input, cb) {
     if (err)
       return cb(err);
 
-    if (self._queue[0].cmd === 'ABOR')
+    if (self._queue[0] && self._queue[0].cmd === 'ABOR')
       return cb();
 
     var sockerr;
