@@ -209,20 +209,23 @@ FTP.prototype.connect = function(options) {
 
   var hasReset = false;
   this._socket.once('end', function() {
-    clearTimeout(timer);
-    self.connected = false;
-    self._reset();
-    hasReset = true;
+    ondone();
     self.emit('end');
   });
 
   this._socket.once('close', function(had_err) {
-    clearTimeout(timer);
-    self.connected = false;
-    if (!hasReset)
-      self._reset();
+    ondone();
     self.emit('close', had_err);
   });
+
+  function ondone() {
+    if (!hasReset) {
+      hasReset = true;
+      clearTimeout(timer);
+      self.connected = false;
+      self._reset();
+    }
+  }
 
   this._socket.connect(this.options.port, this.options.host);
 };
