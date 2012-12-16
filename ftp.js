@@ -428,7 +428,11 @@ FTP.prototype.system = function(cb) { // SYST is optional
 
 // "Extended" (RFC 3659) commands
 FTP.prototype.size = function(path, cb) {
-  this._send('SIZE ' + path, cb);
+  this._send('SIZE ' + path, function(err, text) {
+    if (err)
+      return cb(err);
+    cb(undefined, parseInt(text, 10));
+  });
 };
 
 FTP.prototype.lastMod = function(path, cb) {
