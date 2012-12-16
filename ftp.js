@@ -1,3 +1,5 @@
+// TODO: * STARTTLS support
+
 var Socket = require('net').Socket,
     EventEmitter = require('events').EventEmitter,
     inherits = require('util').inherits,
@@ -49,7 +51,8 @@ var MONTHS = {
       552: 'Requested file action aborted / Exceeded storage allocation (for current directory or dataset)',
       553: 'Requested action not taken / File name not allowed'
     },
-    bytesCRLF = new Buffer([13, 10]);
+    bytesCRLF = new Buffer([13, 10]),
+    bytesNOOP = new Buffer('NOOP\r\n');
 
 var FTP = module.exports = function() {
   this._socket = undefined;
@@ -98,6 +101,23 @@ FTP.prototype.connect = function(options) {
     self._reset();
     self.emit('error', new Error('Timeout while connecting to server'));
   }, this.options.connTimeout);
+  var keepalive,
+      noopreq = {
+        cmd: 'NOOP',
+        cb: function() {
+          keepalive = setTimeout(donoop, self.options.keepalive);
+        }
+      };
+
+  function donoop() {
+    if (!self._socket || !self._socket.writable)
+      clearTimeout(keepalive);
+    else if (!self._curReq && self._queue.length === 0) {
+      self._curReq = noopreq;
+      self._socket.write(bytesNOOP);
+    } else
+      keepalive = setTimeout(donoop, self.options.keepalive);
+  }
 
   this._socket.once('connect', function() {
     clearTimeout(timer);
@@ -134,8 +154,10 @@ FTP.prototype.connect = function(options) {
             self._parseFeat(text);
           cmd = 'TYPE';
           self._send('TYPE I', reentry);
-        } else if (cmd === 'TYPE')
+        } else if (cmd === 'TYPE') {
+          keepalive = setTimeout(donoop, self.options.keepalive);
           self.emit('ready');
+        }
       }
     };
   });
