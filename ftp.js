@@ -93,7 +93,14 @@ FTP.prototype.connect = function(options) {
 
   this._socket.setTimeout(0);
 
+  var timer = setTimeout(function() {
+    self._socket.destroy();
+    self._reset();
+    self.emit('error', new Error('Timeout while connecting to server'));
+  }, this.options.connTimeout);
+
   this._socket.once('connect', function() {
+    clearTimeout(timer);
     self.connected = true;
     var cmd;
     self._curReq = {
@@ -176,11 +183,13 @@ FTP.prototype.connect = function(options) {
   });
 
   this._socket.once('error', function(err) {
+    clearTimeout(timer);
     self.emit('error', err);
   });
 
   var hasReset = false;
   this._socket.once('end', function() {
+    clearTimeout(timer);
     self.connected = false;
     self._reset();
     hasReset = true;
@@ -188,6 +197,7 @@ FTP.prototype.connect = function(options) {
   });
 
   this._socket.once('close', function(had_err) {
+    clearTimeout(timer);
     self.connected = false;
     if (!hasReset)
       self._reset();
