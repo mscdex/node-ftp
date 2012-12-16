@@ -1,5 +1,3 @@
-// TODO: * STARTTLS support
-
 var Socket = require('net').Socket,
     EventEmitter = require('events').EventEmitter,
     inherits = require('util').inherits,
