@@ -51,7 +51,7 @@ var MONTHS = {
     },
     bytesCRLF = new Buffer([13, 10]);
 
-var FTP = module.exports = function(options) {
+var FTP = module.exports = function() {
   this._socket = undefined;
   this._pasvSock = undefined;
   this._feat = undefined;
