@@ -13,7 +13,7 @@ Requirements
 Install
 =======
 
-npm install ftp
+    npm install ftp
 
 
 Examples
@@ -27,7 +27,6 @@ Examples
   // connect to localhost:21 as anonymous
   var c = new FTPClient();
   c.on('ready', function() {
-    if (err) throw err;
     c.list(function(err, list) {
       if (err) throw err;
       console.dir(list);
