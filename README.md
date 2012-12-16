@@ -24,7 +24,6 @@ Examples
 ```javascript
   var FTPClient = require('ftp');
 
-  // connect to localhost:21 as anonymous
   var c = new FTPClient();
   c.on('ready', function() {
     c.list(function(err, list) {
@@ -33,6 +32,7 @@ Examples
       c.end();
     });
   });
+  // connect to localhost:21 as anonymous
   c.connect();
 ```
 
@@ -42,7 +42,6 @@ Examples
   var FTPClient = require('ftp');
   var fs = require('fs');
 
-  // connect to localhost:21 as anonymous
   var c = new FTPClient();
   c.on('ready', function() {
     c.get('foo.txt', function(err, stream) {
@@ -51,6 +50,7 @@ Examples
       stream.pipe(fs.createWriteStream('foo.local-copy.txt'));
     });
   });
+  // connect to localhost:21 as anonymous
   c.connect();
 ```
 
@@ -60,7 +60,6 @@ Examples
   var FTPClient = require('ftp');
   var fs = require('fs');
 
-  // connect to localhost:21 as anonymous
   var c = new FTPClient();
   c.on('ready', function() {
     c.put(fs.createReadStream('foo.txt'), 'foo.remote-copy.txt', function(err) {
@@ -68,6 +67,7 @@ Examples
       c.end();
     });
   });
+  // connect to localhost:21 as anonymous
   c.connect();
 ```
 
