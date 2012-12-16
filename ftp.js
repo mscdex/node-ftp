@@ -591,7 +591,7 @@ function parseListEntry(line) {
       },
       owner: ret.owner,
       group: ret.group,
-      size: ret.size,
+      size: parseInt(ret.size, 10),
       date: undefined
     };
     if (ret.month1 !== undefined) {
@@ -631,7 +631,7 @@ function parseListEntry(line) {
     info = {
       name: ret.name,
       type: (ret.isdir ? 'd' : '-'),
-      size: (ret.isdir ? '0' : ret.size),
+      size: (ret.isdir ? 0 : parseInt(ret.size, 10)),
       date: undefined,
     };
     month = parseInt(ret.month, 10),
