@@ -429,11 +429,11 @@ FTP.prototype.cdup = function(cb) { // CDUP is optional
 };
 
 FTP.prototype.mkdir = function(path, cb) { // MKD is optional
-  this._send('MKD' + path, cb);
+  this._send('MKD ' + path, cb);
 };
 
 FTP.prototype.rmdir = function(path, cb) { // RMD is optional
-  this._send('RMD' + path, cb);
+  this._send('RMD ' + path, cb);
 };
 
 FTP.prototype.system = function(cb) { // SYST is optional
