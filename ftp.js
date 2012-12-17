@@ -412,7 +412,11 @@ FTP.prototype.append = function(input, path, cb) {
 };
 
 FTP.prototype.pwd = function(cb) { // PWD is optional
-  this._send('PWD', cb);
+  this._send('PWD', function(err, text) {
+    if (err)
+      return cb(err);
+    cb(undefined, /^"(.+)"(?: |$)/.exec(text)[1]);
+  });
 };
 
 FTP.prototype.cdup = function(cb) { // CDUP is optional
