@@ -428,7 +428,11 @@ FTP.prototype.rmdir = function(path, cb) { // RMD is optional
 };
 
 FTP.prototype.system = function(cb) { // SYST is optional
-  this._send('SYST', cb);
+  this._send('SYST', function(err, text) {
+    if (err)
+      return cb(err);
+    cb(undefined, /^([^ ]+)(?: |$)/.exec(text)[1]);
+  });
 };
 
 // "Extended" (RFC 3659) commands

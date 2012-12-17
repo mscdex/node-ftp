@@ -164,7 +164,7 @@ Methods
 
 * **pwd**(< _function_ >callback) - _(void)_ - Retrieves the current working directory. `callback` has 2 parameters: < _Error_ >err, < _string_ >cwd.
 
-* **system**(< _function_ >callback) - _(void)_ - Retrieves information about the server's operating system. `callback` has 2 parameters: < _Error_ >err, < _string_ >info.
+* **system**(< _function_ >callback) - _(void)_ - Retrieves the server's operating system. `callback` has 2 parameters: < _Error_ >err, < _string_ >OS.
 
 ### Extended commands (RFC 3659)
 
