@@ -116,6 +116,8 @@ Methods
 
 * **list**([< _string_ >path, ]< _function_ >callback) - _(void)_ - Retrieves the directory listing of `path`. `path` defaults to the current working directory. `callback` has 2 parameters: < _Error_ >err, < _array_ >list. `list` is an array of objects with these properties:
 
+      * type - _string_ - A single character denoting the entry type: 'd' for directory, '-' for file (or 'l' for symlink on **\*NIX only**).
+
       * name - _string_ - The name of the entry.
 
       * size - _string_ - The size of the entry in bytes.
@@ -129,8 +131,6 @@ Methods
           * group - _string_ - An empty string or any combination of 'r', 'w', 'x'.
 
           * other - _string_ - An empty string or any combination of 'r', 'w', 'x'.
-
-      * type - _string_ - A single character denoting the entry type: 'd' for directory, '-' for file (or 'l' for symlink on **\*NIX only**).
      
       * owner - _string_ - The user name or ID that this entry belongs to **(*NIX only)**.
 
