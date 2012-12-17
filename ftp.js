@@ -119,6 +119,7 @@ FTP.prototype.connect = function(options) {
 
   this._socket.once('connect', function() {
     clearTimeout(timer);
+    clearTimeout(keepalive);
     self.connected = true;
     var cmd;
     self._curReq = {
@@ -204,6 +205,7 @@ FTP.prototype.connect = function(options) {
 
   this._socket.once('error', function(err) {
     clearTimeout(timer);
+    clearTimeout(keepalive);
     self.emit('error', err);
   });
 
@@ -222,6 +224,7 @@ FTP.prototype.connect = function(options) {
     if (!hasReset) {
       hasReset = true;
       clearTimeout(timer);
+      clearTimeout(keepalive);
       self.connected = false;
       self._reset();
     }
