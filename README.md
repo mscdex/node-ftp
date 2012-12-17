@@ -62,7 +62,7 @@ Examples
 
   var c = new FTPClient();
   c.on('ready', function() {
-    c.put(fs.createReadStream('foo.txt'), 'foo.remote-copy.txt', function(err) {
+    c.put('foo.txt', 'foo.remote-copy.txt', function(err) {
       if (err) throw err;
       c.end();
     });
@@ -70,6 +70,7 @@ Examples
   // connect to localhost:21 as anonymous
   c.connect();
 ```
+
 
 API
 ===
@@ -139,7 +140,7 @@ Methods
 
 * **get**(< _string_ >path, < _function_ >callback) - _(void)_ - Retrieves a file, `path`, from the server. `callback` has 2 parameters: < _Error_ >err, < _ReadableStream_ >fileStream.
 
-* **put**(< _mixed_ >input, < _string_ >path, < _function_ >callback) - _(void)_ - Sends data to the server to be stored as `path`. `input` can be a ReadableStream or a single Buffer. `callback` has 1 parameter: < _Error_ >err.
+* **put**(< _mixed_ >input, < _string_ >path, < _function_ >callback) - _(void)_ - Sends data to the server to be stored as `path`. `input` can be a ReadableStream, a Buffer, or a path to a file. `callback` has 1 parameter: < _Error_ >err.
 
 * **append**(< _mixed_ >input, < _string_ >path, < _function_ >callback) - _(void)_ - Same as **put()**, except if `path` already exists, it will be appended to instead of overwritten.
 

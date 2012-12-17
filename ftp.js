@@ -1,4 +1,5 @@
-var Socket = require('net').Socket,
+var fs = require('fs'),
+    Socket = require('net').Socket,
     EventEmitter = require('events').EventEmitter,
     inherits = require('util').inherits,
     XRegExp = require('./xregexp');
@@ -564,7 +565,7 @@ FTP.prototype._pasvConnect = function(ip, port, cb) {
 FTP.prototype._store = function(cmd, input, cb) {
   var isBuffer = Buffer.isBuffer(input);
 
-  if (!isBuffer)
+  if (!isBuffer && input.pause !== undefined)
     input.pause();
 
   var self = this;
@@ -590,7 +591,15 @@ FTP.prototype._store = function(cmd, input, cb) {
       if (code === 150) {
         if (isBuffer)
           sock.end(input);
-        else {
+        else if (typeof input === 'string') {
+          // check if input is a file path or just string data to store
+          fs.stat(input, function(err, stats) {
+            if (err)
+              sock.end(input);
+            else
+              fs.createReadStream(input).pipe(sock);
+          });
+        } else {
           input.pipe(sock);
           input.resume();
         }
