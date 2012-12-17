@@ -295,7 +295,7 @@ FTP.prototype.list = function(path, cb) {
     if (self._queue[0] && self._queue[0].cmd === 'ABOR')
       return cb();
 
-    var sockerr, done = false, lastreply = false, entries, buffer = '';
+    var sockerr, done = false, replies = 0, entries, buffer = '';
 
     sock.setEncoding('binary');
     sock.on('data', function(chunk) {
@@ -311,7 +311,7 @@ FTP.prototype.list = function(path, cb) {
     function ondone() {
       if (!done) {
         done = true;
-        if (lastreply) {
+        if (replies === 2) {
           if (sockerr)
             return cb(new Error('Unexpected data connection error: ' + sockerr));
           if (sock.aborting)
@@ -333,10 +333,15 @@ FTP.prototype.list = function(path, cb) {
     self._send(cmd, function(err, text, code) {
       if (err)
         return cb(err);
-      if (code !== 150) {
-        lastreply = true;
+
+      // some servers may not open a data connection for empty directories
+      if (++replies === 1 && code === 226) {
+        replies = 2;
+        sock.destroy();
+        done = false;
         ondone();
-      }
+      } else if (replies === 2)
+        ondone();
     });
   });
 };
