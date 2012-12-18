@@ -5,7 +5,7 @@
   "main": "./lib/ftp",
   "engines": { "node" : ">=0.8.0" },
   "dependencies": {
-    "xregexp": "*"
+    "xregexp": "2.0.0"
   },
   "keywords": [ "ftp", "client", "transfer" ],
   "licenses": [ { "type": "MIT", "url": "http://github.com/mscdex/node-ftp/raw/master/LICENSE" } ],
