@@ -1,4 +1,4 @@
  - Add support for some SITE commands such as CHMOD, CHGRP, and QUOTA
  - Active (non-passive) data connections
+ - MODE Z support
  - IPv6 support
- - Implicit and explicit TLS support for connections

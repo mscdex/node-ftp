@@ -100,11 +100,13 @@ Methods
 
     * port - _integer_ - The port of the FTP server. **Default:** 21
 
+    * secure - _mixed_ - Set to true for both control and data connection encryption, 'control' for control connection encryption only, or 'implicit' for implicitly encrypted control connection (this mode is deprecated in modern times, but usually uses port 990) **Default:** false
+
     * user - _string_ - Username for authentication. **Default:** 'anonymous'
 
     * password - _string_ - Password for authentication. **Default:** 'anonymous@'
 
-    * connTimeout - _integer_ - How long (in milliseconds) to wait for the main connection to be established. **Default:** 10000
+    * connTimeout - _integer_ - How long (in milliseconds) to wait for the control connection to be established. **Default:** 10000
 
     * pasvTimeout - _integer_ - How long (in milliseconds) to wait for a PASV data connection to be established. **Default:** 10000
 
