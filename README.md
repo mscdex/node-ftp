@@ -78,6 +78,8 @@ API
 Events
 ------
 
+* **greeting**(< _string_ >msg) - Emitted after connection. `msg` is the text the server sent upon connection.
+
 * **ready**() - Emitted when connection and authentication were sucessful.
 
 * **close**(< _boolean_ >hadErr) - Emitted when the connection has fully closed.
