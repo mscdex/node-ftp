@@ -142,9 +142,9 @@ Methods
 
       * target - _string_ - For symlink entries, this is the symlink's target **(*NIX only)**.
 
-* **get**(< _string_ >path, [< _boolean_ >useCompression, ]< _function_ >callback) - _(void)_ - Retrieves a file, `path`, from the server. `useCompression` defaults to false. `callback` has 2 parameters: < _Error_ >err, < _ReadableStream_ >fileStream.
+* **get**(< _string_ >path, [< _boolean_ >useCompression, ]< _function_ >callback) - _(void)_ - Retrieves a file at `path` from the server. `useCompression` defaults to false. `callback` has 2 parameters: < _Error_ >err, < _ReadableStream_ >fileStream.
 
-* **put**(< _mixed_ >input, < _string_ >destPath, [< _boolean_ >useCompression, ]< _function_ >callback) - _(void)_ - Sends data to the server to be stored as `path`. `input` can be a ReadableStream, a Buffer, or a path to a local file. `useCompression` defaults to false. `callback` has 1 parameter: < _Error_ >err.
+* **put**(< _mixed_ >input, < _string_ >destPath, [< _boolean_ >useCompression, ]< _function_ >callback) - _(void)_ - Sends data to the server to be stored as `destPath`. `input` can be a ReadableStream, a Buffer, or a path to a local file. `useCompression` defaults to false. `callback` has 1 parameter: < _Error_ >err.
 
 * **append**(< _mixed_ >input, < _string_ >destPath, [< _boolean_ >useCompression, ]< _function_ >callback) - _(void)_ - Same as **put()**, except if `destPath` already exists, it will be appended to instead of overwritten.
 
