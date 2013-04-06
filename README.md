@@ -114,7 +114,9 @@ Methods
 
     * keepalive - _integer_ - How often (in milliseconds) to send a 'dummy' (NOOP) command to keep the connection alive. **Default:** 10000
 
-* **end**() - _(void)_ - Closes the connection to the server.
+* **end**() - _(void)_ - Closes the connection to the server after any/all enqueued commands have been executed.
+
+* **destroy**() - _(void)_ - Closes the connection to the server immediately.
 
 ### Required "standard" commands (RFC 959)
 
