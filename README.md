@@ -160,6 +160,10 @@ Methods
 
 * **status**(< _function_ >callback) - _(void)_ - Retrieves human-readable information about the server's status. `callback` has 2 parameters: < _Error_ >err, < _string_ >status.
 
+* **ascii**(< _function_ >callback) - _(void)_ - Sets the transfer data type to ASCII. `callback` has 1 parameter: < _Error_ >err.
+
+* **binary**(< _function_ >callback) - _(void)_ - Sets the transfer data type to binary (default at time of connection). `callback` has 1 parameter: < _Error_ >err.
+
 ### Optional "standard" commands (RFC 959)
 
 * **mkdir**(< _string_ >path, [< _boolean_ >recursive, ]< _function_ >callback) - _(void)_ - Creates a new directory, `path`, on the server. `recursive` is for enabling a 'mkdir -p' algorithm and defaults to false. `callback` has 1 parameter: < _Error_ >err.
