@@ -176,6 +176,8 @@ Methods
 
 * **system**(< _function_ >callback) - _(void)_ - Retrieves the server's operating system. `callback` has 2 parameters: < _Error_ >err, < _string_ >OS.
 
+* **listSafe**([< _string_ >path, ][< _boolean_ >useCompression, ]< _function_ >callback) - _(void)_ - Similar to list(), except the directory is temporarily changed to `path` to retrieve the directory listing. This is useful for servers that do not handle characters like spaces and quotes in directory names well for the LIST command. This function is "optional" because it relies on pwd() being available.
+
 ### Extended commands (RFC 3659)
 
 * **size**(< _string_ >path, < _function_ >callback) - _(void)_ - Retrieves the size of `path`. `callback` has 2 parameters: < _Error_ >err, < _integer_ >numBytes.
