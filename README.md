@@ -158,6 +158,8 @@ Methods
 
 * **abort**(< _function_ >callback) - _(void)_ - Aborts the current data transfer (e.g. from get(), put(), or list()). `callback` has 1 parameter: < _Error_ >err.
 
+* **site**(< _string_ >command, < _function_ >callback) - _(void)_ - Sends `command` (e.g. 'CHMOD 755 foo', 'QUOTA') using SITE. `callback` has 3 parameters: < _Error_ >err, < _string >responseText, < _integer_ >responseCode.
+
 * **status**(< _function_ >callback) - _(void)_ - Retrieves human-readable information about the server's status. `callback` has 2 parameters: < _Error_ >err, < _string_ >status.
 
 * **ascii**(< _function_ >callback) - _(void)_ - Sets the transfer data type to ASCII. `callback` has 1 parameter: < _Error_ >err.
