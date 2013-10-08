@@ -104,6 +104,8 @@ Methods
 
     * secure - _mixed_ - Set to true for both control and data connection encryption, 'control' for control connection encryption only, or 'implicit' for implicitly encrypted control connection (this mode is deprecated in modern times, but usually uses port 990) **Default:** false
 
+    * secureOptions - _object_ - Additional options to be passed to `tls.connect()`. **Default:** (none)
+
     * user - _string_ - Username for authentication. **Default:** 'anonymous'
 
     * password - _string_ - Password for authentication. **Default:** 'anonymous@'
