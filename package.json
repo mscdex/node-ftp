@@ -6,7 +6,7 @@
   "engines": { "node" : ">=0.8.0" },
   "dependencies": {
     "xregexp": "2.0.0",
-    "readable-stream": "1.0.2"
+    "readable-stream": "1.1.x"
   },
   "keywords": [ "ftp", "client", "transfer" ],
   "licenses": [ { "type": "MIT", "url": "http://github.com/mscdex/node-ftp/raw/master/LICENSE" } ],
