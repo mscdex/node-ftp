@@ -1,5 +1,5 @@
 { "name": "ftp",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "author": "Brian White <mscdex@mscdex.net>",
   "description": "An FTP client module for node.js",
   "main": "./lib/connection",
