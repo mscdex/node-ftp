@@ -154,6 +154,8 @@ Methods
 
 * **rename**(< _string_ >oldPath, < _string_ >newPath, < _function_ >callback) - _(void)_ - Renames `oldPath` to `newPath` on the server. `callback` has 1 parameter: < _Error_ >err.
 
+* **logout**(< _function_ >callback) - _(void)_ - Logout the user from the server. `callback` has 1 parameter: < _Error_ >err.
+
 * **delete**(< _string_ >path, < _function_ >callback) - _(void)_ - Deletes a file, `path`, on the server. `callback` has 1 parameter: < _Error_ >err.
 
 * **cwd**(< _string_ >path, < _function_ >callback) - _(void)_ - Changes the current working directory to `path`. `callback` has 2 parameters: < _Error_ >err, < _string_ >currentDir. Note: `currentDir` is only given if the server replies with the path in the response text.
