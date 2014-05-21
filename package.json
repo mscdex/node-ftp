@@ -8,6 +8,9 @@
     "xregexp": "2.0.0",
     "readable-stream": "1.1.x"
   },
+  "scripts": {
+    "test": "node test/test.js"
+  },
   "keywords": [ "ftp", "client", "transfer" ],
   "licenses": [ { "type": "MIT", "url": "http://github.com/mscdex/node-ftp/raw/master/LICENSE" } ],
   "repository" : { "type": "git", "url": "http://github.com/mscdex/node-ftp.git" }
