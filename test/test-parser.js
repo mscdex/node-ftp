@@ -22,7 +22,35 @@ var group = path.basename(__filename, '.js') + '/';
     },
     what: 'Normal directory'
   },
-  { source: 'drwxrwxrwt   7 root   root    4096 May 19 22:17 tmp',
+  { source: 'drwxrwxrwx   1 owner   group          0 Aug 31 2012 e-books',
+    expected: {
+      type: 'd',
+      name: 'e-books',
+      target: undefined,
+      sticky: false,
+      rights: { user: 'rwx', group: 'rwx', other: 'rwx' },
+      owner: 'owner',
+      group: 'group',
+      size: 0,
+      date: new Date('2012-08-31T00:00')
+    },
+    what: 'Normal directory #2'
+  },
+  { source: '-rw-rw-rw-   1 owner   group    7045120 Sep 02  2012 music.mp3',
+    expected: {
+      type: '-',
+      name: 'music.mp3',
+      target: undefined,
+      sticky: false,
+      rights: { user: 'rw', group: 'rw', other: 'rw' },
+      owner: 'owner',
+      group: 'group',
+      size: 7045120,
+      date: new Date('2012-09-02T00:00')
+    },
+    what: 'Normal file'
+  },
+  { source: 'drwxrwxrwt   7 root   root    4096 May 19 2012 tmp',
     expected: {
       type: 'd',
       name: 'tmp',
