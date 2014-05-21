@@ -32,11 +32,11 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date((new Date()).getFullYear() + '-05-19T22:17')
+      date: new Date('2012-05-19T00:00')
     },
     what: 'Directory with sticky bit and executable for others'
   },
-  { source: 'drwxrwx--t   7 root   root    4096 May 19 22:17 tmp',
+  { source: 'drwxrwx--t   7 root   root    4096 May 19 2012 tmp',
     expected: {
       type: 'd',
       name: 'tmp',
@@ -46,11 +46,11 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date((new Date()).getFullYear() + '-05-19T22:17')
+      date: new Date('2012-05-19T00:00')
     },
     what: 'Directory with sticky bit and executable for others #2'
   },
-  { source: 'drwxrwxrwT   7 root   root    4096 May 19 22:17 tmp',
+  { source: 'drwxrwxrwT   7 root   root    4096 May 19 2012 tmp',
     expected: {
       type: 'd',
       name: 'tmp',
@@ -60,11 +60,11 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date((new Date()).getFullYear() + '-05-19T22:17')
+      date: new Date('2012-05-19T00:00')
     },
     what: 'Directory with sticky bit and not executable for others'
   },
-  { source: 'drwxrwx--T   7 root   root    4096 May 19 22:17 tmp',
+  { source: 'drwxrwx--T   7 root   root    4096 May 19 2012 tmp',
     expected: {
       type: 'd',
       name: 'tmp',
@@ -74,7 +74,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date((new Date()).getFullYear() + '-05-19T22:17')
+      date: new Date('2012-05-19T00:00')
     },
     what: 'Directory with sticky bit and not executable for others #2'
   },
