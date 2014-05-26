@@ -160,6 +160,8 @@ Methods
 
 * **delete**(< _string_ >path, < _function_ >callback) - _(void)_ - Deletes a file, `path`, on the server. `callback` has 1 parameter: < _Error_ >err.
 
+* **deleteRecursively**(< _string_ >path, < _function_ >callback) - This call deletes a file or directory from the server. It is equivalent to `rm -r aFileOrDir` on UNIX. `callback` has 1 parameter: < _Error_ >err.
+
 * **cwd**(< _string_ >path, < _function_ >callback) - _(void)_ - Changes the current working directory to `path`. `callback` has 2 parameters: < _Error_ >err, < _string_ >currentDir. Note: `currentDir` is only given if the server replies with the path in the response text.
 
 * **abort**(< _function_ >callback) - _(void)_ - Aborts the current data transfer (e.g. from get(), put(), or list()). `callback` has 1 parameter: < _Error_ >err.
@@ -176,7 +178,7 @@ Methods
 
 * **mkdir**(< _string_ >path, [< _boolean_ >recursive, ]< _function_ >callback) - _(void)_ - Creates a new directory, `path`, on the server. `recursive` is for enabling a 'mkdir -p' algorithm and defaults to false. `callback` has 1 parameter: < _Error_ >err.
 
-* **rmdir**(< _string_ >path, < _function_ >callback) - _(void)_ - Removes a directory, `path`, on the server. `callback` has 1 parameter: < _Error_ >err.
+* **rmdir**(< _string_ >path, [< _boolean_ >recursive, ]< _function_ >callback) - _(void)_ - Removes a directory, `path`, on the server. If `recursive`, this call will delete the contents of the directory if it is not empty. `callback` has 1 parameter: < _Error_ >err.
 
 * **cdup**(< _function_ >callback) - _(void)_ - Changes the working directory to the parent of the current directory. `callback` has 1 parameter: < _Error_ >err.
 
