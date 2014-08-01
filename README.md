@@ -176,7 +176,7 @@ Methods
 
 * **mkdir**(< _string_ >path, [< _boolean_ >recursive, ]< _function_ >callback) - _(void)_ - Creates a new directory, `path`, on the server. `recursive` is for enabling a 'mkdir -p' algorithm and defaults to false. `callback` has 1 parameter: < _Error_ >err.
 
-* **rmdir**(< _string_ >path, < _function_ >callback) - _(void)_ - Removes a directory, `path`, on the server. `callback` has 1 parameter: < _Error_ >err.
+* **rmdir**(< _string_ >path, [< _boolean_ >recursive, ]< _function_ >callback) - _(void)_ - Removes a directory, `path`, on the server. If `recursive`, this call will delete the contents of the directory if it is not empty. `callback` has 1 parameter: < _Error_ >err.
 
 * **cdup**(< _function_ >callback) - _(void)_ - Changes the working directory to the parent of the current directory. `callback` has 1 parameter: < _Error_ >err.
 
