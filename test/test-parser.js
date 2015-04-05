@@ -128,6 +128,10 @@ var group = path.basename(__filename, '.js') + '/';
     },
     what: 'Directory with sticky bit and not executable for others #2'
   },
+  { source: 'total 871',
+    expected: null,
+    what: 'Ignored line'
+  },
 ].forEach(function(v) {
   var result = parseListEntry(v.source),
       msg = '[' + group + v.what + ']: parsed output mismatch.\n'
