@@ -109,6 +109,8 @@ Methods
     * user - _string_ - Username for authentication. **Default:** 'anonymous'
 
     * password - _string_ - Password for authentication. **Default:** 'anonymous@'
+    
+    * debug - _mixed_ - Set to `console.log` to debug connection in console. **Default:** (none)
 
     * connTimeout - _integer_ - How long (in milliseconds) to wait for the control connection to be established. **Default:** 10000
 
