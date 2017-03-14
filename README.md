@@ -110,6 +110,10 @@ Methods
 
     * password - _string_ - Password for authentication. **Default:** 'anonymous@'
 
+    * passive - _boolean_ - Allow to choose between FTP passive and active modes. If false, 'activeIp' option should be set. **Default:** true
+
+    * activeIp - _string - The IP address FTP server will use during active connection (ie. this client IP address, reachable from FTP server). Required if 'passive' option is set to false. **Default:** '127.0.0.1'
+
     * connTimeout - _integer_ - How long (in milliseconds) to wait for the control connection to be established. **Default:** 10000
 
     * pasvTimeout - _integer_ - How long (in milliseconds) to wait for a PASV data connection to be established. **Default:** 10000
@@ -139,7 +143,7 @@ Methods
           * group - _string_ - An empty string or any combination of 'r', 'w', 'x'.
 
           * other - _string_ - An empty string or any combination of 'r', 'w', 'x'.
-     
+
       * owner - _string_ - The user name or ID that this entry belongs to **(*NIX only)**.
 
       * group - _string_ - The group name or ID that this entry belongs to **(*NIX only)**.
