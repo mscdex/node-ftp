@@ -19,7 +19,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date('2012-12-21T00:00Z')
+      date: new Date('2012-12-21T00:00:00.000Z')
     },
     what: 'Normal directory'
   },
@@ -34,7 +34,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'owner',
       group: 'group',
       size: 0,
-      date: new Date('2012-08-31T00:00Z')
+      date: new Date('2012-08-31T00:00:00.000Z')
     },
     what: 'Normal directory #2'
   },
@@ -49,7 +49,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'owner',
       group: 'group',
       size: 7045120,
-      date: new Date('2012-09-02T00:00Z')
+      date: new Date('2012-09-02T00:00:00.000Z')
     },
     what: 'Normal file'
   },
@@ -64,7 +64,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'owner',
       group: 'group',
       size: 7045120,
-      date: new Date('2012-09-02T00:00Z')
+      date: new Date('2012-09-02T00:00:00.000Z')
     },
     what: 'File with ACL set'
   },
@@ -79,7 +79,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date('2012-05-19T00:00Z')
+      date: new Date('2012-05-19T00:00:00.000Z')
     },
     what: 'Directory with sticky bit and executable for others'
   },
@@ -94,7 +94,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date('2012-05-19T00:00Z')
+      date: new Date('2012-05-19T00:00:00.000Z')
     },
     what: 'Directory with sticky bit and executable for others #2'
   },
@@ -109,7 +109,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date('2012-05-19T00:00Z')
+      date: new Date('2012-05-19T00:00:00.000Z')
     },
     what: 'Directory with sticky bit and not executable for others'
   },
@@ -124,7 +124,7 @@ var group = path.basename(__filename, '.js') + '/';
       owner: 'root',
       group: 'root',
       size: 4096,
-      date: new Date('2012-05-19T00:00Z')
+      date: new Date('2012-05-19T00:00:00.000Z')
     },
     what: 'Directory with sticky bit and not executable for others #2'
   },
