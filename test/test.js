@@ -1,9 +1,25 @@
 const assert = require('assert');
 
-describe('Array', () => {
-  describe('#indexOf()', () => {
-    it('should return -1 when the value is not present', () => {
-      assert.equal(-1, [1, 2, 3].indexOf(4));
+describe('#NodeFTP', () => {
+  const { parseListEntry } = require('../lib/parser');
+  const entires = require('./assets/entries');
+
+  before(() => {
+
+  });
+
+  beforeEach(() => {
+
+  });
+
+
+  describe('#Parser', () => {
+    it('should no exception while parsing', () => {
+      entires.forEach((entry) => {
+        const result = parseListEntry(entry.source);
+
+        assert.deepEqual(result, entry.expected);
+      });
     });
   });
 });
