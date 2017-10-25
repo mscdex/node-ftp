@@ -8,28 +8,30 @@
   "description": "An FTP client module for node.js",
   "main": "./lib/connection",
   "engines": {
-    "node": ">=0.8.0"
+    "node": ">=6.4.0"
   },
   "dependencies": {
     "xregexp": "2.0.0",
     "readable-stream": "1.1.x"
   },
   "scripts": {
-    "test": "node test/test.js"
+    "test": "mocha"
   },
   "keywords": [
     "ftp",
     "client",
     "transfer"
   ],
-  "licenses": [
-    {
-      "type": "MIT",
-      "url": "http://github.com/icetee/node-ftp/raw/master/LICENSE"
-    }
-  ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "http://github.com/icetee/node-ftp.git"
+  },
+  "devDependencies": {
+    "dotenv": "^4.0.0",
+    "eslint": "^4.9.0",
+    "eslint-config-airbnb-base": "^12.1.0",
+    "eslint-plugin-import": "^2.8.0",
+    "mocha": "^4.0.1"
   }
 }

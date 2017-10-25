@@ -1,0 +1,20 @@
+{
+  "extends": "airbnb-base",
+  "env": {
+    "browser": false,
+    "es6": true,
+    "node": true
+  },
+  "globals": {
+    "describe",
+    "it"
+  },
+  "rules": {
+    "no-underscore-dangle": 0,
+    "no-param-reassign": 0,
+    "no-plusplus": 0,
+    "no-console": 0,
+    "global-require": 0,
+    "max-len": 0
+  }
+}
