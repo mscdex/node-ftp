@@ -15,7 +15,7 @@
     "readable-stream": "1.1.x"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha --require babel-register"
   },
   "keywords": [
     "ftp",
@@ -28,6 +28,7 @@
     "url": "http://github.com/icetee/node-ftp.git"
   },
   "devDependencies": {
+    "babel-register": "^6.26.0",
     "dotenv": "^4.0.0",
     "eslint": "^4.9.0",
     "eslint-config-airbnb-base": "^12.1.0",

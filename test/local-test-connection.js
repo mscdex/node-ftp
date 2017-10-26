@@ -10,9 +10,7 @@ const config = {
   user: process.env.USER,
   password: process.env.PASS,
   remote: process.env.REMOTE,
-  debug: (text) => {
-    console.log(text);
-  },
+  debug: false,
 };
 
 const client = new Client();
@@ -36,7 +34,7 @@ const connected = () => {
       if (err) throw err;
 
       console.log('Uploaded: ', filename);
-      uploadList[key].splice(key, 1);
+      uploadList.splice(key, 1);
 
       client.list((errClient, list) => {
         if (errClient) throw errClient;
