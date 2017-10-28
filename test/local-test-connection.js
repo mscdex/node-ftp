@@ -1,29 +1,59 @@
-var Client = require('../lib/connection');
+const path = require('path');
+const fs = require('fs');
+const EventEmitter = require('events');
+const Client = require('../lib/connection');
 
-var c = new Client();
-c.on('ready', function() {
-  c.list(function(err, list) {
-    if (err) throw err;
-    console.dir(list);
-    //c.end();
-  });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-  c.on('error', function(err) {
-    console.error('ERROR: ', err);
-  });
+const config = {
+  host: process.env.HOST,
+  user: process.env.USER,
+  password: process.env.PASS,
+  remote: process.env.REMOTE,
+  debug: false,
+};
 
-  c.on('close', function(err) {
-    console.error('CLOSE: ', err);
-  });
+const client = new Client();
+const emitter = new EventEmitter();
+const watchPath = './__folder/';
+const uploadList = [];
+
+const ready = () => client.cwd('/keymaps/', () => emitter.emit('connected'));
+
+client.on('error', (err) => {
+  console.error('ERROR: ', err);
 });
 
-c.connect({
-    //host: 'ipv6.app',
-    host: 'localhost',
-    //user: 'icetee',
-    //password: 'password',
-    //forcePasv: true,
-    debug: function(text) {
-        console.log(text);
-    }
+client.on('close', (err) => {
+  console.error('CLOSE: ', err);
 });
+
+const connected = () => {
+  const upload = (filename, key) => {
+    client.put(watchPath + filename, filename, (err) => {
+      if (err) throw err;
+
+      console.log('Uploaded: ', filename);
+      uploadList.splice(key, 1);
+
+      client.list((errClient, list) => {
+        if (errClient) throw errClient;
+        console.log(list);
+      });
+    });
+  };
+
+  uploadList.forEach(upload);
+  client.end();
+};
+
+fs.watch(watchPath, { encoding: 'utf8' }, (eventType, filename) => {
+  if (eventType === 'change') {
+    uploadList.push(filename);
+    emitter.emit('upload');
+  }
+});
+
+client.on('ready', ready);
+emitter.on('upload', () => client.connect(config));
+emitter.on('connected', connected);
