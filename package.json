@@ -14,7 +14,7 @@
     "xregexp": "^3.2.0"
   },
   "scripts": {
-    "test": "mocha --require babel-register"
+    "test": "NODE_ENV=test mocha --require babel-register './test/*.spec.js'"
   },
   "keywords": [
     "ftp",
@@ -28,10 +28,13 @@
   },
   "devDependencies": {
     "babel-register": "^6.26.0",
+    "chai": "^4.1.2",
     "dotenv": "^4.0.0",
     "eslint": "^4.10.0",
     "eslint-config-airbnb-base": "^12.1.0",
     "eslint-plugin-import": "^2.8.0",
-    "mocha": "^4.0.1"
+    "mocha": "^4.0.1",
+    "sinon": "^4.0.2",
+    "sinon-chai": "^2.14.0"
   }
 }
