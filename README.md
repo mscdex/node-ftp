@@ -193,3 +193,7 @@ Methods
 * **lastMod**(< _string_ >path, < _function_ >callback) - _(void)_ - Retrieves the last modified date and time for `path`. `callback` has 2 parameters: < _Error_ >err, < _Date_ >lastModified.
 
 * **restart**(< _integer_ >byteOffset, < _function_ >callback) - _(void)_ - Sets the file byte offset for the next file transfer action (get/put) to `byteOffset`. `callback` has 1 parameter: < _Error_ >err.
+
+### Draft commands (draft-somers-ftp-mfxx-04)
+
+* **setLastMod**(< _string_ >path, < _Date_ >date, < _function_ >callback) - _(void)_ - Set modification time for `path`. `callback` has 1 parameter: < _Error_ >err.
