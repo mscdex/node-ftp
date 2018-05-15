@@ -200,6 +200,46 @@ const entires = [
     what: 'File with space in owner name and group name',
   },
   {
+    source: '-rw-------    1 33         www-data           14 May 15 01:52 .ftpquota',
+    expected: {
+      type: '-',
+      name: '.ftpquota',
+      target: undefined,
+      sticky: false,
+      rights: {
+        user: 'rw',
+        group: '',
+        other: '',
+      },
+      acl: false,
+      owner: '33',
+      group: 'www-data',
+      size: 14,
+      date: new Date('2018-05-14T23:52:00.000Z'),
+    },
+    what: 'File with number owner and hyphen groupname',
+  },
+  {
+    source: '-rw-------    1 www-data         33           14 May 15 01:52 .ftpquota',
+    expected: {
+      type: '-',
+      name: '.ftpquota',
+      target: undefined,
+      sticky: false,
+      rights: {
+        user: 'rw',
+        group: '',
+        other: '',
+      },
+      acl: false,
+      owner: 'www-data',
+      group: '33',
+      size: 14,
+      date: new Date('2018-05-14T23:52:00.000Z'),
+    },
+    what: 'File with hyphen owner and number groupname',
+  },
+  {
     source: '-rw-rw-rw-+   1 owner   group    7045120 Sep 02  2012 music.mp3',
     expected: {
       type: '-',
