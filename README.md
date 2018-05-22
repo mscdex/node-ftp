@@ -7,7 +7,7 @@ node-ftp is an FTP client module for [node.js](http://nodejs.org/) that provides
 Requirements
 ============
 
-* [node.js](http://nodejs.org/) -- v0.8.0 or newer
+* [node.js](http://nodejs.org/) -- v6.4.0 or newer
 
 
 Install
@@ -139,7 +139,7 @@ Methods
           * group - _string_ - An empty string or any combination of 'r', 'w', 'x'.
 
           * other - _string_ - An empty string or any combination of 'r', 'w', 'x'.
-     
+
       * owner - _string_ - The user name or ID that this entry belongs to **(*NIX only)**.
 
       * group - _string_ - The group name or ID that this entry belongs to **(*NIX only)**.
@@ -193,3 +193,5 @@ Methods
 * **lastMod**(< _string_ >path, < _function_ >callback) - _(void)_ - Retrieves the last modified date and time for `path`. `callback` has 2 parameters: < _Error_ >err, < _Date_ >lastModified.
 
 * **restart**(< _integer_ >byteOffset, < _function_ >callback) - _(void)_ - Sets the file byte offset for the next file transfer action (get/put) to `byteOffset`. `callback` has 1 parameter: < _Error_ >err.
+
+* **mlsd**([< _string_ >path, ][< _boolean_ >useCompression, ]< _function_ >callback) - _(void)_ - Retrieves the directory listing of `path`. `path` defaults to the current working directory. `useCompression` defaults to false. `callback` has 2 parameters: < _Error_ >err, < _array_ >list. See the `list` command for a list of properties. Also see https://tools.ietf.org/html/rfc3659 7.2.

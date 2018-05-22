@@ -1,0 +1,8 @@
+.DS_Store
+npm-debug.log
+node_modules
+.ftpconfig*
+.ftpignore
+tmp
+.env
+__folder
