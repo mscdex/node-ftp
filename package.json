@@ -12,6 +12,6 @@
     "test": "node test/test.js"
   },
   "keywords": [ "ftp", "client", "transfer" ],
-  "licenses": [ { "type": "MIT", "url": "http://github.com/mscdex/node-ftp/raw/master/LICENSE" } ],
-  "repository" : { "type": "git", "url": "http://github.com/mscdex/node-ftp.git" }
+  "licenses": [ { "type": "MIT", "url": "https://github.com/mscdex/node-ftp/raw/master/LICENSE" } ],
+  "repository" : { "type": "git", "url": "https://github.com/mscdex/node-ftp.git" }
 }
