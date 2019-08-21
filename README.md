@@ -71,7 +71,35 @@ Examples
   c.connect();
 ```
 
+* Using your properties connections
 
+
+```javascript
+var Client = require('ftp');
+var fs = require('fs');
+
+var  config = {
+    host: 'my-host',
+    port: 'my-port',
+    user: 'my-user',
+    password: 'my-password',
+};
+var options = {
+    logging: 'basic'
+};
+var c = new Client();
+
+c.on('ready', function() {
+  c.list(function(err, list) {
+    if (err) throw err;
+    console.dir(list);
+    c.end();
+  });
+});
+// your properties of connection
+c.connect(config,options);
+
+```
 API
 ===
 
@@ -139,7 +167,7 @@ Methods
           * group - _string_ - An empty string or any combination of 'r', 'w', 'x'.
 
           * other - _string_ - An empty string or any combination of 'r', 'w', 'x'.
-     
+
       * owner - _string_ - The user name or ID that this entry belongs to **(*NIX only)**.
 
       * group - _string_ - The group name or ID that this entry belongs to **(*NIX only)**.
