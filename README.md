@@ -50,8 +50,12 @@ Examples
       stream.pipe(fs.createWriteStream('foo.local-copy.txt'));
     });
   });
-  // connect to localhost:21 as anonymous
-  c.connect();
+  // connect to a remote server
+  c.connect({
+    host: '',
+    password: '',
+    user: ''
+  });
 ```
 
 * Upload local file 'foo.txt' to the server:
